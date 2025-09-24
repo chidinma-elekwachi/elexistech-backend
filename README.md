@@ -57,9 +57,6 @@ Android → google-services.json → place in android/app/.
 yarn add @react-native-firebase/app @react-native-firebase/auth @react-native-firebase/firestore @react-native-firebase/storage
 
 
-Run CocoaPods for iOS:
-
-cd ios && pod install && cd ..
 
 📂 Firebase Schema
 
@@ -96,7 +93,7 @@ calls/{callId}
   "timestamp": 1234567890
 }
 
-🧩 Tasks
+## 🧩 Tasks
 ✅ Authentication
 
 Implement email + password login with Firebase Auth.
@@ -129,23 +126,8 @@ Caller/receiver should be linked via users.uid.
 
 Store call metadata in calls collection.
 
-🛠 Development Commands
 
-Start Metro:
-
-yarn start
-
-
-Run iOS:
-
-yarn ios
-
-
-Run Android:
-
-yarn android
-
-📩 Submission
+## 📩 Submission
 
 Commit all work to your branch.
 
