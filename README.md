@@ -16,8 +16,8 @@ The UI is not important – focus on backend logic + Firebase integration.
 
 🚀 Getting Started
 1. Clone the Repo
-git clone https://github.com/chidinma-elekwachi/lutero.api
-cd lutero.api
+git clone https://github.com/chidinma-elekwachi/elexistech-backend
+cd elexistech-backend
 
 2. Checkout Your Branch
 
