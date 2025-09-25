@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>WebRTC Client (Firebase Signaling)</title>
+  </head>
+  <body>
+    <h2>WebRTC Call Demo</h2>
+
+    <video id="localVideo" autoplay playsinline muted></video>
+    <video id="remoteVideo" autoplay playsinline></video>
+
+    <div>
+      <button id="startButton">Start Call</button>
+      <button id="answerButton">Answer Call</button>
+      <button id="hangupButton">Hang Up</button>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <script>
+      // Paste your firebaseConfig here
+      const firebaseConfig = {
+        apiKey: "AIzaSyDbZ3w_SgZb29yGt31KVmPgo3chyve9_RA",
+        authDomain: "elexis-test.firebaseapp.com",
+        projectId: "elexis-test",
+        storageBucket: "elexis-test.firebasestorage.app",
+        messagingSenderId: "1063743330510",
+        appId: "1:1063743330510:web:dd644b177c467e3005589f",
+        measurementId: "G-Z1HL2QC315",
+      };
+
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+
+      const servers = {
+        iceServers: [{ urls: ["stun:stun.l.google.com:19302"] }],
+      };
+      let pc = new RTCPeerConnection(servers);
+
+      let localStream;
+      let remoteStream = new MediaStream();
+
+      const localVideo = document.getElementById("localVideo");
+      const remoteVideo = document.getElementById("remoteVideo");
+
+      pc.ontrack = (event) => {
+        event.streams[0].getTracks().forEach((track) => {
+          remoteStream.addTrack(track);
+        });
+      };
+      remoteVideo.srcObject = remoteStream;
+
+      document.getElementById("startButton").onclick = async () => {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+        localStream
+          .getTracks()
+          .forEach((track) => pc.addTrack(track, localStream));
+        localVideo.srcObject = localStream;
+
+        const callDoc = db.collection("calls").doc();
+        const offerCandidates = callDoc.collection("offerCandidates");
+        const answerCandidates = callDoc.collection("answerCandidates");
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            offerCandidates.add(event.candidate.toJSON());
+          }
+        };
+
+        const offerDescription = await pc.createOffer();
+        await pc.setLocalDescription(offerDescription);
+
+        const offer = {
+          sdp: offerDescription.sdp,
+          type: offerDescription.type,
+        };
+        await callDoc.set({ offer });
+
+        callDoc.onSnapshot((snapshot) => {
+          const data = snapshot.data();
+          if (!pc.currentRemoteDescription && data?.answer) {
+            const answerDescription = new RTCSessionDescription(data.answer);
+            pc.setRemoteDescription(answerDescription);
+          }
+        });
+
+        answerCandidates.onSnapshot((snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === "added") {
+              const candidate = new RTCIceCandidate(change.doc.data());
+              pc.addIceCandidate(candidate);
+            }
+          });
+        });
+
+        alert(`Call ID: ${callDoc.id}`);
+      };
+
+      document.getElementById("answerButton").onclick = async () => {
+        const callId = prompt("Enter Call ID");
+        const callDoc = db.collection("calls").doc(callId);
+        const offerCandidates = callDoc.collection("offerCandidates");
+        const answerCandidates = callDoc.collection("answerCandidates");
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            answerCandidates.add(event.candidate.toJSON());
+          }
+        };
+
+        const callData = (await callDoc.get()).data();
+        const offerDescription = callData.offer;
+        await pc.setRemoteDescription(
+          new RTCSessionDescription(offerDescription)
+        );
+
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+        localStream
+          .getTracks()
+          .forEach((track) => pc.addTrack(track, localStream));
+        localVideo.srcObject = localStream;
+
+        const answerDescription = await pc.createAnswer();
+        await pc.setLocalDescription(answerDescription);
+
+        const answer = {
+          type: answerDescription.type,
+          sdp: answerDescription.sdp,
+        };
+        await callDoc.update({ answer });
+
+        offerCandidates.onSnapshot((snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === "added") {
+              let candidate = new RTCIceCandidate(change.doc.data());
+              pc.addIceCandidate(candidate);
+            }
+          });
+        });
+      };
+
+      document.getElementById("hangupButton").onclick = () => {
+        pc.close();
+        localStream.getTracks().forEach((track) => track.stop());
+        alert("Call ended");
+      };
+    </script>
+  </body>
+</html>

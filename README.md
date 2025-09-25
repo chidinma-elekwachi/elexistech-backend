@@ -1,136 +1,49 @@
-Lutero Job Test – React Native + Firebase
-📌 Overview
+# Job Test - Expo Chat Prototype
 
-This repo is a clean React Native project.
-Your task is to:
+## Overview
+This app demonstrates:
+- Firebase email/password auth with multiple account support (up to 15) and instant switching.
+- Media upload (images/videos) to Firebase Storage; media URL saved in Firestore message object.
+- 1:1 audio/video calling via WebRTC in a WebView using Firestore for signaling.
 
-Set up Firebase authentication (email + password).
+## Setup
+1. Create a test Firebase project (do NOT use production).
+2. Enable Authentication (Email/Password), Firestore, and Storage.
+3. Replace `firebase.js` config with your Firebase project's config.
+4. Install deps:
+```
+expo install firebase expo-secure-store expo-image-picker expo-av react-native-webview
+npm install @react-navigation/native @react-navigation/stack
+expo install react-native-gesture-handler react-native-reanimated react-native-screens react-native-safe-area-context
+```
 
-Implement account switching (up to 15 accounts).
+5. Start app:
+```
+expo start
+```
 
-Add media upload (profile/avatar upload, other users should see it).
+Open with Expo Go on mobile devices.
 
-Implement audio/video calls (using Agora or WebRTC, with Firebase uid as identifier).
+## How to test features
+- **Auth / Account switching**
+- Open Auth screen, register or login to add account. The account is saved locally (SecureStore).
+- Open Settings to see up to 15 saved accounts (avatar + username).
+- Tap an account to switch instantly (silent re-login in background).
 
-The UI is not important – focus on backend logic + Firebase integration.
+- **Media Upload & Sharing**
+- Navigate to Chat screen.
+- Use "Attach" to pick image or video. The file is uploaded to Firebase Storage and a message with `mediaUrl` is stored in `chats/{chatId}/messages`.
+- Open the app on another device (another account) to see incoming media inside chat bubble.
 
-🚀 Getting Started
-1. Clone the Repo
-git clone https://github.com/chidinma-elekwachi/elexistech-backend
-cd elexistech-backend
+- **Audio/Video Calls**
+- Host `webrtc-client.html` (or embed as HTML) and set `WEBRTC_CLIENT_URL` in `screens/CallScreen.js`.
+- Use Call screen: Caller creates call doc and opens WebView (caller role). Callee, when receiving ring, accepts and opens WebView (callee role).
+- WebRTC SDP/ICE exchange happens via `calls/{callId}/signals`.
 
-2. Checkout Your Branch
+## Security Notes
+- For this test we persist email/passwords in `expo-secure-store` to enable instant switching. This is **only for prototype/testing**. In production use secure token refresh mechanisms and never store plaintext passwords.
 
-Branch name = your first name
+## Known limitations
+- WebRTC in WebView requires a hosted HTML client and may need TURN for NAT traversal.
+- This is minimal UI (assignment requirement). Focus is on integration and logic, not styling.
 
-git checkout -b <your-name>
-
-🔥 Firebase Setup
-1. Create a Firebase Project
-
-Go to Firebase Console
-.
-
-Create a new project.
-
-Enable:
-
-Authentication → Email/Password
-
-Firestore Database
-
-Storage
-
-2. Register iOS + Android Apps
-
-Add iOS app (use bundle ID com.lutero.app)
-
-Add Android app (use package name com.lutero.app)
-
-Download the config files:
-
-iOS → GoogleService-Info.plist → place in ios/ folder.
-
-Android → google-services.json → place in android/app/.
-
-3. Install Firebase Packages
-yarn add @react-native-firebase/app @react-native-firebase/auth @react-native-firebase/firestore @react-native-firebase/storage
-
-
-
-📂 Firebase Schema
-
-You’ll use Firestore with these collections:
-
-users
-{
-  "uid": "string",
-  "email": "string",
-  "username": "string",
-  "avatar": "string (downloadURL)",
-  "bio": "string",
-  "online": true,
-  "lastSeen": 1234567890,
-  "createdAt": 1234567890
-}
-
-chats/{chatId}/messages/{msgId}
-{
-  "senderId": "string",
-  "receiverId": "string",
-  "content": "string | mediaURL",
-  "type": "text | image | video",
-  "timestamp": 1234567890,
-  "status": "sent | delivered | read"
-}
-
-calls/{callId}
-{
-  "callerId": "string",
-  "receiverId": "string",
-  "channelId": "string",
-  "status": "ringing | ongoing | ended",
-  "timestamp": 1234567890
-}
-
-## 🧩 Tasks
-✅ Authentication
-
-Implement email + password login with Firebase Auth.
-
-Store user profile in users collection.
-
-✅ Account Switching
-
-Allow multiple accounts (up to 15).
-
-Cache credentials (email + password) in SecureStore/AsyncStorage.
-
-Switching = re-authenticate silently (no logout page).
-
-Display account list with avatar + username.
-
-✅ Media Upload
-
-Add a media picker for profile avatar.
-
-Upload to Firebase Storage → save downloadURL to Firestore.
-
-Other users should see updated profile/avatar.
-
-✅ Calls (Audio/Video)
-
-Use Agora SDK or react-native-webrtc.
-
-Caller/receiver should be linked via users.uid.
-
-Store call metadata in calls collection.
-
-
-## 📩 Submission
-
-Commit all work to your branch.
-
-Push to origin.
-
-I will pull and test directly on my device.
