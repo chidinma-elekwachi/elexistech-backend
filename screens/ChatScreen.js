@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
-  Platform
+  Platform,
 } from "react-native";
 import { db, auth } from "../firebase";
 import {
@@ -50,9 +50,11 @@ export default function ChatScreen() {
     await addDoc(collection(db, "chats", CHAT_ID, "messages"), {
       text: text.trim(),
       senderId: user.uid,
+      senderEmail: user.email, // NEW
       createdAt: serverTimestamp(),
       status: "sent",
     });
+
     setText("");
   };
 
@@ -62,9 +64,10 @@ export default function ChatScreen() {
     if (!picked) return;
     try {
       const mime = picked.mediaType === "video" ? "video/mp4" : "image/jpeg";
-      const url = await uploadMedia(picked.uri, picked.name, mime);
+      const url = await uploadMedia(picked);
       await addDoc(collection(db, "chats", CHAT_ID, "messages"), {
         senderId: user.uid,
+        senderEmail: user.email, // NEW
         createdAt: serverTimestamp(),
         mediaUrl: url,
         mediaType: picked.mediaType,
@@ -77,6 +80,9 @@ export default function ChatScreen() {
 
   const renderItem = ({ item }) => {
     const isMe = user && item.senderId === user.uid;
+    const senderEmail = item.senderEmail || "unknown@email.com";
+    const senderName = senderEmail.split("@")[0]; // take first part before @
+
     return (
       <View
         style={[styles.bubble, isMe ? styles.bubbleRight : styles.bubbleLeft]}
@@ -98,7 +104,7 @@ export default function ChatScreen() {
           <Text>{item.text}</Text>
         )}
         <Text style={{ fontSize: 10, color: "#666", marginTop: 6 }}>
-          {isMe ? "You" : item.senderId}
+          {isMe ? "You" : senderName}
         </Text>
       </View>
     );

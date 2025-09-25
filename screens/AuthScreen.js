@@ -34,8 +34,8 @@ export default function AuthScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, padding: 20 }}>
-      <View style={styles.container}>
+    <SafeAreaView  style={styles.container}>
+      <View>
         <Text style={styles.h}>Add / Login Account</Text>
         <TextInput
           style={styles.input}

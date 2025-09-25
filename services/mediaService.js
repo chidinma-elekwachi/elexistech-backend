@@ -1,49 +1,56 @@
-// services/mediaService.js
-import * as ImagePicker from 'expo-image-picker';
-import { storage } from '../firebase';
-import { ref as sRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import * as FileSystem from 'expo-file-system';
+import * as ImagePicker from "expo-image-picker";
+import { supabase } from "../supabase";
+import { decode } from "base64-arraybuffer";
 
-/**
- * pickMedia() -> opens picker, returns { uri, type('image'|'video'), name }
- */
+
 export async function pickMedia() {
-  // ask permission & allow both images & videos
-  const res = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.All,
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ["images", "videos"], 
     quality: 0.8,
-    allowsMultipleSelection: false,
+    base64: true, 
   });
-  if (res.cancelled) return null;
-  const mediaType = res.type === 'video' ? 'video' : 'image';
-  const uri = res.uri;
-  const name = uri.split('/').pop();
-  return { uri, mediaType, name };
-}
 
-/**
- * uploadMedia(uri, filename, mimeType) -> returns downloadURL
- */
-export async function uploadMedia(uri, filename, mimeType = 'application/octet-stream') {
-  // Read file into base64
-  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-  const blob = b64toBlob(base64, mimeType);
+  if (result.canceled) return null;
 
-  const path = `chat_media/${Date.now()}_${filename}`;
-  const sreference = sRef(storage, path);
-  const uploadTaskSnapshot = await uploadBytesResumable(sreference, blob);
-  const url = await getDownloadURL(uploadTaskSnapshot.ref);
-  return url;
-}
+  const asset = result.assets[0];
+  const uri = asset.uri;
+  const mediaType = asset.type === "video" ? "video" : "image";
+  const base64 = asset.base64; 
 
-// helper: convert base64 -> Blob (works in RN with global atob)
-function b64toBlob(b64Data, contentType = '', sliceSize = 512) {
-  // atob may not exist in older RN; use alternative if needed
-  const binaryString = global.atob ? global.atob(b64Data) : Buffer.from(b64Data, 'base64').toString('binary');
-  const byteNumbers = new Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    byteNumbers[i] = binaryString.charCodeAt(i);
+  let name = asset.fileName || uri.split("/").pop();
+  if (!name) {
+    const ext = mediaType === "video" ? "mp4" : "jpg";
+    name = `media_${Date.now()}.${ext}`;
   }
-  const byteArray = new Uint8Array(byteNumbers);
-  return new Blob([byteArray], { type: contentType });
+
+  console.log("Picked:", { uri, mediaType, name, hasBase64: !!base64 });
+  return { uri, mediaType, name, base64 };
+}
+
+export async function uploadMedia(file) {
+  try {
+    if (!file || !file.base64) throw new Error("No base64 file provided");
+
+    console.log("Uploading file:", file.name);
+
+    const arrayBuffer = decode(file.base64); 
+    const filePath = `${Date.now()}-${file.name}`;
+
+    const { error } = await supabase.storage
+      .from("chat-media")
+      .upload(filePath, arrayBuffer, {
+        contentType: file.mediaType === "video" ? "video/mp4" : "image/jpeg",
+        upsert: false,
+      });
+
+    if (error) throw error;
+
+    const { data } = supabase.storage.from("chat-media").getPublicUrl(filePath);
+    console.log("Uploaded URL:", data.publicUrl);
+
+    return data.publicUrl;
+  } catch (err) {
+    console.error("Upload failed:", err.message);
+    throw err;
+  }
 }

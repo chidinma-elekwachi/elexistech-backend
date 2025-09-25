@@ -59,8 +59,8 @@ export default function SettingsScreen({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, padding: 20 }}>
-      <View style={{ flex: 1, backgroundColor: "#fff" }}>
+    <SafeAreaView style={{ flex: 1, padding: 0, paddingTop: 0, backgroundColor: "#fff" }}>
+      <View style={{ flex: 1 }}>
         <FlatList
           data={accounts}
           keyExtractor={(i) => i.id}
