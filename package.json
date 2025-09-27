@@ -1,19 +1,45 @@
 {
-  "name": "elexistech-jobtest",
-  "license": "0BSD",
+  "name": "elexistech-backend",
   "version": "1.0.0",
+  "description": "Backend API for ElexisTech Chat Application - Media Upload & Authentication",
   "main": "index.js",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "expo": "~54.0.10",
-    "expo-status-bar": "~3.0.8",
-    "react": "19.1.0",
-    "react-native": "0.81.4"
+    "@supabase/supabase-js": "^2.57.4",
+    "agora-token": "^2.0.5",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "firebase-admin": "^11.10.1",
+    "helmet": "^7.0.0",
+    "joi": "^17.9.2",
+    "jsonwebtoken": "^9.0.2",
+    "mime-types": "^2.1.35",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "sharp": "^0.32.6",
+    "socket.io": "^4.7.2",
+    "uuid": "^9.0.1"
   },
-  "private": true
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "nodejs",
+    "express",
+    "firebase",
+    "supabase",
+    "chat",
+    "api"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chidinma-elekwachi/elexistech-backend.git"
+  }
 }
