@@ -1,0 +1,85 @@
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { IconButton, useTheme } from 'react-native-paper';
+
+import AuthScreen from '../screens/AuthScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
+import UsersScreen from '../screens/UsersScreen';
+import ChatScreen from '../screens/ChatScreen';
+
+const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator();
+
+const MainTabs = () => {
+    const theme = useTheme();
+
+    return (
+        <Tab.Navigator
+            screenOptions={({ route }) => ({
+                tabBarIcon: ({ focused, color, size }) => {
+                    let iconName;
+
+                    if (route.name === 'Users') {
+                        iconName = 'account-group';
+                    } else if (route.name === 'Profile') {
+                        iconName = 'account';
+                    }
+
+                    return <IconButton icon={iconName} size={size} iconColor={color} />;
+                },
+                headerShown: false,
+                tabBarActiveTintColor: theme.colors.primary,
+                tabBarInactiveTintColor: theme.colors.placeholder,
+                tabBarStyle: {
+                    backgroundColor: theme.colors.surface,
+                    borderTopColor: theme.colors.surfaceVariant,
+                    elevation: 0,
+                    shadowOpacity: 0,
+                    height: 60,
+                    paddingBottom: 8,
+                },
+                tabBarLabelStyle: {
+                    fontWeight: '500',
+                },
+            })}
+        >
+            <Tab.Screen name="Users" component={UsersScreen} />
+            <Tab.Screen name="Profile" component={ProfileScreen} />
+        </Tab.Navigator>
+    );
+};
+
+const Navigation = () => {
+    return (
+        <NavigationContainer>
+            <Stack.Navigator
+                screenOptions={{
+                    headerShown: false,
+                }}
+            >
+                <Stack.Screen name="Auth" component={AuthScreen} />
+                <Stack.Screen name="MainTabs" component={MainTabs} />
+                <Stack.Screen
+                    name="EditProfile"
+                    component={EditProfileScreen}
+                    options={{
+                        headerShown: true,
+                        title: 'Edit Profile',
+                    }}
+                />
+                <Stack.Screen
+                    name="Chat"
+                    component={ChatScreen}
+                    options={{
+                        headerShown: false,
+                    }}
+                />
+            </Stack.Navigator>
+        </NavigationContainer>
+    );
+};
+
+export default Navigation;
