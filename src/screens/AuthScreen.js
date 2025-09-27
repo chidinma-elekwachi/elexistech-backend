@@ -1,18 +1,55 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, ImageBackground, Image } from 'react-native';
-import { TextInput, Button, Text, Surface, useTheme, IconButton } from 'react-native-paper';
+import { TextInput, Button, Text, Surface, useTheme, IconButton, Snackbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
+import authService from '../services/authService';
 
 const AuthScreen = ({ navigation }) => {
     const theme = useTheme();
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [username, setUsername] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [visible, setVisible] = useState(false);
 
-    const handleSubmit = () => {
-        // TODO: Implement actual authentication
-        if (email && password) {
+    const onDismissSnackBar = () => {
+        setVisible(false);
+        setError('');
+    };
+
+    const showError = (message) => {
+        setError(message);
+        setVisible(true);
+    };
+
+    const handleSubmit = async () => {
+        if (!email || !password) {
+            showError('Please fill in all fields');
+            return;
+        }
+
+        if (!isLogin && !username) {
+            showError('Please enter a username');
+            return;
+        }
+
+        setLoading(true);
+        setError('');
+
+        try {
+            if (isLogin) {
+                await authService.signIn(email, password);
+            } else {
+                await authService.signUp(email, password, username);
+            }
             navigation.replace('MainTabs');
+        } catch (error) {
+            const handledError = await authService.handleError(error);
+            showError(handledError.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -127,6 +164,8 @@ const AuthScreen = ({ navigation }) => {
                         onPress={handleSubmit}
                         style={styles.button}
                         contentStyle={{ paddingVertical: 8 }}
+                        loading={loading}
+                        disabled={loading}
                     >
                         {isLogin ? 'Sign In' : 'Sign Up'}
                     </Button>
@@ -143,6 +182,18 @@ const AuthScreen = ({ navigation }) => {
                     </Button>
                 </Surface>
             </ScrollView>
+            <Snackbar
+                visible={visible}
+                onDismiss={onDismissSnackBar}
+                action={{
+                    label: 'Close',
+                    onPress: onDismissSnackBar,
+                }}
+                duration={3000}
+                style={{ marginBottom: 20 }}
+            >
+                {error}
+            </Snackbar>
         </KeyboardAvoidingView>
     );
 };
