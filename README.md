@@ -1,136 +1,316 @@
-Lutero Job Test – React Native + Firebase
-📌 Overview
+# ElexisTech Chat Application
 
-This repo is a clean React Native project.
-Your task is to:
+A comprehensive React Native chat application built with Expo, Firebase, and TypeScript. Features include Firebase authentication with account switching, media sharing, and audio/video calling capabilities.
 
-Set up Firebase authentication (email + password).
+## Features
 
-Implement account switching (up to 15 accounts).
+### 🔐 Authentication & Account Switching
+- **Firebase Authentication** with email and password
+- **Multi-account support** - users can save up to 15 accounts
+- **Instant account switching** with cached credentials
+- **Silent re-login** for seamless user experience
+- **Account management** in settings screen
 
-Add media upload (profile/avatar upload, other users should see it).
+### 📱 Media Upload & Sharing
+- **Image and video upload** to Firebase Storage
+- **Gallery and camera integration** using Expo Image Picker
+- **Real-time media sharing** in chat bubbles
+- **Cross-platform support** (iOS & Android)
+- **Automatic media type detection**
 
-Implement audio/video calls (using Agora or WebRTC, with Firebase uid as identifier).
+### 📞 Audio & Video Calls
+- **1-to-1 audio and video calling**
+- **Firebase-based signaling** for call management
+- **Real-time call status updates**
+- **Incoming call notifications**
+- **Call acceptance/rejection flow**
+- **Ready for Agora SDK integration**
 
-The UI is not important – focus on backend logic + Firebase integration.
+### 💬 Chat Features
+- **Real-time messaging** with Firestore
+- **Media message support** (images/videos)
+- **Message status tracking** (sent, delivered, read)
+- **Chat list with last message preview**
+- **Direct and group chat support**
 
-🚀 Getting Started
-1. Clone the Repo
-git clone https://github.com/chidinma-elekwachi/elexistech-backend
-cd elexistech-backend
+## Tech Stack
 
-2. Checkout Your Branch
+- **Frontend**: React Native with Expo
+- **Backend**: Firebase (Auth, Firestore, Storage)
+- **Language**: TypeScript
+- **Navigation**: React Navigation
+- **State Management**: React Hooks
+- **Media**: Expo Image Picker, Expo AV
+- **Storage**: AsyncStorage for account caching
 
-Branch name = your first name
+## Project Structure
 
-git checkout -b <your-name>
+```
+├── App.tsx                 # Main app component with navigation
+├── config/
+│   └── firebase.ts         # Firebase configuration
+├── services/
+│   ├── authService.ts      # Authentication & account switching
+│   ├── chatService.ts      # Chat & messaging functionality
+│   ├── mediaService.ts     # Media upload & management
+│   └── callService.ts      # Call signaling & management
+├── screens/
+│   ├── LoginScreen.tsx     # User login
+│   ├── RegisterScreen.tsx  # User registration
+│   ├── AccountSwitchScreen.tsx # Account management
+│   ├── ChatListScreen.tsx  # Chat list view
+│   ├── ChatScreen.tsx      # Individual chat
+│   ├── SettingsScreen.tsx  # User settings
+│   └── CallScreen.tsx      # Audio/video call interface
+├── types/
+│   └── index.ts           # TypeScript type definitions
+└── README.md
+```
 
-🔥 Firebase Setup
-1. Create a Firebase Project
+## Setup Instructions
 
-Go to Firebase Console
-.
+### Prerequisites
+- Node.js (v16 or higher)
+- Expo CLI (`npm install -g @expo/cli`)
+- iOS Simulator (for iOS development)
+- Android Studio (for Android development)
 
-Create a new project.
+### Installation
 
-Enable:
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd elexistech-backend
+   ```
 
-Authentication → Email/Password
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-Firestore Database
+3. **Firebase Configuration**
+   - The project is already configured with Firebase
+   - `google-services.json` (Android) and `GoogleService-Info.plist` (iOS) are included
+   - Firebase project: `chat-backend-1`
 
-Storage
+4. **Start the development server**
+   ```bash
+   npm start
+   ```
 
-2. Register iOS + Android Apps
+5. **Run on device/simulator**
+   ```bash
+   # iOS
+   npm run ios
+   
+   # Android
+   npm run android
+   ```
 
-Add iOS app (use bundle ID com.lutero.app)
+## Testing Features
 
-Add Android app (use package name com.lutero.app)
+### Authentication Testing
 
-Download the config files:
+1. **Register a new account**
+   - Open the app
+   - Tap "Don't have an account? Sign Up"
+   - Fill in name, email, and password
+   - Account will be saved automatically
 
-iOS → GoogleService-Info.plist → place in ios/ folder.
+2. **Test account switching**
+   - Register multiple accounts
+   - Use "Quick Login" on login screen
+   - Or go to Settings → Manage Accounts
+   - Switch between accounts instantly
 
-Android → google-services.json → place in android/app/.
+3. **Test account management**
+   - Go to Settings
+   - View all saved accounts
+   - Remove accounts you don't need
+   - Switch to different accounts
 
-3. Install Firebase Packages
-yarn add @react-native-firebase/app @react-native-firebase/auth @react-native-firebase/firestore @react-native-firebase/storage
+### Media Sharing Testing
 
+1. **Send images**
+   - Open a chat
+   - Tap the camera icon (📷)
+   - Choose from gallery or take a photo
+   - Image will upload and appear in chat
 
+2. **Send videos**
+   - Open a chat
+   - Tap the video icon (🎥)
+   - Select a video from gallery
+   - Video will upload and appear in chat
 
-📂 Firebase Schema
+3. **View media**
+   - Tap on images to view full size
+   - Tap on videos to play them
+   - Media loads from Firebase Storage
 
-You’ll use Firestore with these collections:
+### Call Testing
 
-users
+1. **Start a call**
+   - In chat list, tap phone icon (📞) for audio call
+   - Or tap video icon (📹) for video call
+   - Call will be initiated
+
+2. **Receive a call**
+   - When someone calls you, you'll see incoming call screen
+   - Tap ✓ to accept or ✕ to reject
+   - Call will connect (UI only - actual audio/video requires Agora SDK)
+
+3. **End a call**
+   - Tap the red ✕ button to end call
+   - Call status will update in real-time
+
+### Chat Testing
+
+1. **Send messages**
+   - Type in the text input
+   - Tap "Send" or press Enter
+   - Messages appear in real-time
+
+2. **View chat list**
+   - See all your conversations
+   - Last message preview
+   - Timestamp of last activity
+
+## Firebase Schema
+
+### Users Collection
+```typescript
 {
-  "uid": "string",
-  "email": "string",
-  "username": "string",
-  "avatar": "string (downloadURL)",
-  "bio": "string",
-  "online": true,
-  "lastSeen": 1234567890,
-  "createdAt": 1234567890
+  id: string;
+  name: string;
+  avatar: string;
+  email: string;
+  online: boolean;
+  lastSeen: number;
 }
+```
 
-chats/{chatId}/messages/{msgId}
+### Messages Collection (subcollection of chats)
+```typescript
 {
-  "senderId": "string",
-  "receiverId": "string",
-  "content": "string | mediaURL",
-  "type": "text | image | video",
-  "timestamp": 1234567890,
-  "status": "sent | delivered | read"
+  id: string;
+  text?: string;
+  senderId: string;
+  createdAt: timestamp;
+  mediaUrl?: string;
+  mediaType?: "image" | "video";
+  status: "sent" | "pending" | "failed" | "delivered" | "read";
+  replyToMessageId?: string;
+  reactions: Record<string, string>;
+  readBy: string[];
 }
+```
 
-calls/{callId}
+### Chats Collection
+```typescript
 {
-  "callerId": "string",
-  "receiverId": "string",
-  "channelId": "string",
-  "status": "ringing | ongoing | ended",
-  "timestamp": 1234567890
+  id: string;
+  members: string[];
+  groupName?: string;
+  isGroup: boolean;
+  groupAvatar?: string;
+  lastMessage?: {
+    text: string;
+    createdAt: timestamp;
+    senderId: string;
+    readBy: string[];
+  };
 }
+```
 
-## 🧩 Tasks
-✅ Authentication
+### Calls Collection
+```typescript
+{
+  callId: string;
+  callerId: string;
+  receiverId: string;
+  type: "audio" | "video";
+  status: "calling" | "accepted" | "rejected" | "ended";
+  timestamp: number;
+}
+```
 
-Implement email + password login with Firebase Auth.
+## Development Notes
 
-Store user profile in users collection.
+### Account Switching Implementation
+- Uses AsyncStorage to cache account credentials
+- Silent re-login for instant switching
+- Automatic cleanup of old accounts (max 15)
+- Real-time auth state management
 
-✅ Account Switching
+### Media Upload Flow
+1. User selects media (image/video)
+2. File is uploaded to Firebase Storage
+3. Download URL is stored in Firestore message
+4. Other users see media in real-time
 
-Allow multiple accounts (up to 15).
+### Call Signaling
+- Uses Firestore for call signaling
+- Real-time listeners for call status
+- Automatic call cleanup after 5 minutes
+- Ready for Agora SDK integration
 
-Cache credentials (email + password) in SecureStore/AsyncStorage.
+## Future Enhancements
 
-Switching = re-authenticate silently (no logout page).
+1. **Agora SDK Integration**
+   - Replace call UI with actual audio/video
+   - Add screen sharing
+   - Group calling support
 
-Display account list with avatar + username.
+2. **Push Notifications**
+   - Firebase Cloud Messaging
+   - Background call notifications
+   - Message notifications
 
-✅ Media Upload
+3. **Advanced Chat Features**
+   - Message reactions
+   - Message replies
+   - File sharing
+   - Voice messages
 
-Add a media picker for profile avatar.
+4. **UI/UX Improvements**
+   - Dark mode
+   - Custom themes
+   - Animations
+   - Better media viewer
 
-Upload to Firebase Storage → save downloadURL to Firestore.
+## Troubleshooting
 
-Other users should see updated profile/avatar.
+### Common Issues
 
-✅ Calls (Audio/Video)
+1. **Firebase connection issues**
+   - Check internet connection
+   - Verify Firebase project configuration
+   - Ensure proper API keys
 
-Use Agora SDK or react-native-webrtc.
+2. **Media upload failures**
+   - Check Firebase Storage rules
+   - Verify file permissions
+   - Check file size limits
 
-Caller/receiver should be linked via users.uid.
+3. **Account switching not working**
+   - Clear AsyncStorage: `AsyncStorage.clear()`
+   - Re-login to all accounts
+   - Check Firebase Auth state
 
-Store call metadata in calls collection.
+4. **Call issues**
+   - Check Firestore rules for calls collection
+   - Verify user permissions
+   - Check call cleanup timers
 
+## Support
 
-## 📩 Submission
+For issues or questions:
+1. Check the troubleshooting section
+2. Review Firebase console for errors
+3. Check Expo logs for runtime errors
+4. Verify all dependencies are installed
 
-Commit all work to your branch.
+## License
 
-Push to origin.
-
-I will pull and test directly on my device.
+This project is licensed under the 0BSD License.

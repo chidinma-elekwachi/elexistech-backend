@@ -32,6 +32,7 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
 
 # typescript
 *.tsbuildinfo
@@ -39,3 +40,25 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+
+# iOS
+ios/Pods/
+ios/DerivedData/
+ios/build/
+*.xcodeproj/project.xcworkspace/
+*.xcworkspace/
+*.xcuserdata/
+*.plist  # optional: if you store GoogleService-Info.plist here
+GoogleService-Info.plist
+
+
+# Android
+android/.gradle/
+android/app/build/
+android/build/
+*.iml
+*.keystore
+*.jks
+google-services.json  
+# Firebase Android config
