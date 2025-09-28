@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, ImageBackground, Image } from 'react-native';
+import {
+    View,
+    StyleSheet,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    Image,
+    ToastAndroid,
+    Alert
+} from 'react-native';
 import { TextInput, Button, Text, Surface, useTheme, IconButton, Snackbar } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import authService from '../services/authService';
@@ -24,6 +33,14 @@ const AuthScreen = ({ navigation }) => {
         setVisible(true);
     };
 
+    const showSuccessMessage = (message) => {
+        if (Platform.OS === 'android') {
+            ToastAndroid.show(message, ToastAndroid.SHORT);
+        } else {
+            Alert.alert('Success', message);
+        }
+    };
+
     const handleSubmit = async () => {
         if (!email || !password) {
             showError('Please fill in all fields');
@@ -41,13 +58,22 @@ const AuthScreen = ({ navigation }) => {
         try {
             if (isLogin) {
                 await authService.signIn(email, password);
+                navigation.replace('MainTabs');
             } else {
                 await authService.signUp(email, password, username);
+                // Clear the form and switch to login mode
+                showSuccessMessage('Account created successfully! Please sign in.');
+                setIsLogin(true);
+                setUsername('');
+                setPassword('');
             }
-            navigation.replace('MainTabs');
         } catch (error) {
-            const handledError = await authService.handleError(error);
-            showError(handledError.message);
+            if (error instanceof Error) {
+                showError(error.message);
+            } else {
+                console.log('Unexpected error:', error);
+                showError('An unexpected error occurred');
+            }
         } finally {
             setLoading(false);
         }
@@ -137,6 +163,18 @@ const AuthScreen = ({ navigation }) => {
                         {isLogin ? 'Welcome Back!' : 'Create Account'}
                     </Text>
 
+                    {!isLogin && (
+                        <TextInput
+                            label="Username"
+                            value={username}
+                            onChangeText={setUsername}
+                            mode="outlined"
+                            style={styles.input}
+                            autoCapitalize="none"
+                            left={<TextInput.Icon icon="account" />}
+                        />
+                    )}
+
                     <TextInput
                         label="Email"
                         value={email}
@@ -172,7 +210,11 @@ const AuthScreen = ({ navigation }) => {
 
                     <Button
                         mode="text"
-                        onPress={() => setIsLogin(!isLogin)}
+                        onPress={() => {
+                            setIsLogin(!isLogin);
+                            setError('');
+                            setVisible(false);
+                        }}
                         style={styles.switchButton}
                         textColor={theme.colors.secondary}
                     >

@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { IconButton, useTheme } from 'react-native-paper';
 
+import LoadingScreen from '../screens/LoadingScreen';
 import AuthScreen from '../screens/AuthScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
@@ -45,9 +46,10 @@ const MainTabs = () => {
                     fontWeight: '500',
                 },
             })}
+            initialRouteName="Profile"
         >
-            <Tab.Screen name="Users" component={UsersScreen} />
             <Tab.Screen name="Profile" component={ProfileScreen} />
+            <Tab.Screen name="Users" component={UsersScreen} />
         </Tab.Navigator>
     );
 };
@@ -59,7 +61,9 @@ const Navigation = () => {
                 screenOptions={{
                     headerShown: false,
                 }}
+                initialRouteName="Loading"
             >
+                <Stack.Screen name="Loading" component={LoadingScreen} />
                 <Stack.Screen name="Auth" component={AuthScreen} />
                 <Stack.Screen name="MainTabs" component={MainTabs} />
                 <Stack.Screen

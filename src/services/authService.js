@@ -43,7 +43,7 @@ class AuthService {
                 name,
                 email,
                 avatar: '',
-                online: true,
+                online: false,
                 lastSeen: null,
             });
 
@@ -64,7 +64,7 @@ class AuthService {
 
             // Update online status
             await updateDoc(doc(db, 'users', user.uid), {
-                online: true,
+                online: false,
                 lastSeen: null,
             });
 
@@ -161,6 +161,20 @@ class AuthService {
         }
     }
 
+    // Get active user
+    async getActiveUser() {
+        try {
+            const uid = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_USER);
+            if (!uid) return null;
+
+            const accounts = await this.getSavedAccounts();
+            return accounts[uid] || null;
+        } catch (error) {
+            console.error('Error getting active user:', error);
+            return null;
+        }
+    }
+
     // Remove saved account
     async removeSavedAccount(uid) {
         try {
@@ -186,7 +200,7 @@ class AuthService {
             'auth/wrong-password': 'Invalid password',
             "auth/too-many-requests": "Too many attempts. Please try again later.",
             'auth/network-request-failed': 'Network error. Please check your connection',
-            'auth/api-key-not-valid': 'Invalid API key',
+            'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'Invalid API key',
             'auth/argument-error': 'Invalid argument provided',
             'auth/credential-already-in-use': 'This credential is already associated with a different user',
             'auth/requires-recent-login': 'Please log in again and try this operation',
@@ -197,4 +211,5 @@ class AuthService {
     }
 }
 
-export default new AuthService();
+const authService = new AuthService()
+export default authService;

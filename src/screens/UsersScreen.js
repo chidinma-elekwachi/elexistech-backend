@@ -1,29 +1,43 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
-import { Avatar, Text, Surface, TouchableRipple, useTheme } from 'react-native-paper';
+import { Avatar, Text, Surface, TouchableRipple, useTheme, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase/config';
+import { formatDistanceToNow } from 'date-fns';
 
 const UsersScreen = ({ navigation }) => {
     const theme = useTheme();
+    const [users, setUsers] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    // Mock data - replace with actual data
-    const users = [
-        {
-            id: '1',
-            name: 'Alice Johnson',
-            bio: 'UI/UX Designer',
-            avatar: null,
-            lastSeen: '2 min ago',
-        },
-        {
-            id: '2',
-            name: 'Bob Smith',
-            bio: 'Full Stack Developer',
-            avatar: null,
-            lastSeen: 'Online',
-        },
-        // Add more mock users as needed
-    ];
+    useEffect(() => {
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, orderBy('lastSeen', 'desc'));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const usersList = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                lastSeen: doc.data().lastSeen ? formatDistanceToNow(doc.data().lastSeen.toDate(), { addSuffix: true }) : 'Never'
+            }));
+            setUsers(usersList);
+            setLoading(false);
+        }, (error) => {
+            console.error('Error fetching users:', error);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+            </SafeAreaView>
+        );
+    }
 
     const renderUser = ({ item }) => (
         <TouchableRipple
@@ -31,23 +45,29 @@ const UsersScreen = ({ navigation }) => {
             style={styles.userCard}
         >
             <Surface style={styles.userCardInner} elevation={1}>
-                <Avatar.Image
-                    size={60}
-                    source={
-                        item.avatar
-                            ? { uri: item.avatar }
-                            : require('../../assets/favicon.png')
-                    }
-                />
+                <View style={styles.avatarContainer}>
+                    <Avatar.Image
+                        size={60}
+                        source={
+                            item.avatar
+                                ? { uri: item.avatar }
+                                : require('../../assets/favicon.png')
+                        }
+                    />
+                    {item.online && <View style={[styles.onlineIndicator, { backgroundColor: theme.colors.primary }]} />}
+                </View>
                 <View style={styles.userInfo}>
                     <Text variant="titleMedium" style={styles.userName}>
                         {item.name}
                     </Text>
                     <Text variant="bodyMedium" style={styles.userBio}>
-                        {item.bio}
+                        {item.bio || 'No bio added yet'}
                     </Text>
-                    <Text variant="bodySmall" style={styles.lastSeen}>
-                        {item.lastSeen}
+                    <Text variant="bodySmall" style={[
+                        styles.lastSeen,
+                        item.online && { color: theme.colors.primary }
+                    ]}>
+                        {item.online ? 'Online' : `Last seen ${item.lastSeen}`}
                     </Text>
                 </View>
             </Surface>
