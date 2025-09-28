@@ -422,6 +422,10 @@ const ProfileScreen = ({ navigation }) => {
                         onClose={() => setShowAccountSwitcher(false)}
                         currentUser={user}
                         savedAccounts={savedAccounts}
+                        onAddAccount={() => {
+                            setShowAccountSwitcher(false);
+                            navigation.navigate('Auth');
+                        }}
                     />
                 </View>
             </Modal>

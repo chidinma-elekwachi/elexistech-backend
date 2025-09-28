@@ -5,13 +5,33 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { formatDistanceToNow } from 'date-fns';
+import authService from '../services/authService';
 
 const UsersScreen = ({ navigation }) => {
     const theme = useTheme();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [currentUserId, setCurrentUserId] = useState(null);
 
     useEffect(() => {
+        // Get current user ID first
+        const getCurrentUser = async () => {
+            try {
+                const user = await authService.getCurrentUser();
+                if (user) {
+                    setCurrentUserId(user.uid);
+                }
+            } catch (error) {
+                console.error('Error getting current user:', error);
+            }
+        };
+
+        getCurrentUser();
+    }, []);
+
+    useEffect(() => {
+        if (!currentUserId) return; // Wait for current user ID
+
         const usersRef = collection(db, 'users');
         // Remove orderBy to avoid issues with missing lastSeen fields
         const q = query(usersRef);
@@ -44,8 +64,11 @@ const UsersScreen = ({ navigation }) => {
                 };
             });
 
+            // Filter out the current user
+            const filteredUsers = usersList.filter(user => user.id !== currentUserId);
+
             // Sort users by lastSeen (most recent first)
-            usersList.sort((a, b) => {
+            filteredUsers.sort((a, b) => {
                 if (a.lastSeen === 'Never' && b.lastSeen === 'Never') return 0;
                 if (a.lastSeen === 'Never') return 1;
                 if (b.lastSeen === 'Never') return -1;
@@ -55,7 +78,7 @@ const UsersScreen = ({ navigation }) => {
                 return 0;
             });
 
-            setUsers(usersList);
+            setUsers(filteredUsers);
             setLoading(false);
         }, (error) => {
             console.error('Error fetching users:', error);
@@ -63,7 +86,7 @@ const UsersScreen = ({ navigation }) => {
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [currentUserId]);
 
     if (loading) {
         return (

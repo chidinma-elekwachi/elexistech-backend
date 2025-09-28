@@ -46,9 +46,12 @@ FIREBASE_DATABASE_URL=https://your_project.firebaseio.com
 # Cloudinary Configuration
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_UPLOAD_PRESET=your_unsigned_preset
+
+# Agora Configuration
+AGORA_APP_ID=your_agora_app_id
 ```
 
-### 3. Firebase Setup
+### 3. Firebase Setuppa
 
 #### Create Firebase Project
 
@@ -104,6 +107,10 @@ Make sure your `.env` file contains all the required variables:
 - `CLOUDINARY_CLOUD_NAME` - Your Cloudinary cloud name
 - `CLOUDINARY_UPLOAD_PRESET` - Your unsigned upload preset name
 
+**Agora Variables:**
+
+- `AGORA_APP_ID` - Your Agora App ID for video calling
+
 ### 4. Cloudinary Setup
 
 1. Create a [Cloudinary account](https://cloudinary.com/)
@@ -113,7 +120,14 @@ Make sure your `.env` file contains all the required variables:
    - Set signing mode to "Unsigned"
    - Set folder to "avatars" and "media-share"
 
-### 5. Run the Application
+### 5. Agora Setup
+
+1. Create an [Agora account](https://console.agora.io/)
+2. Create a new project
+3. Get your **App ID** from the project dashboard
+4. Add the App ID to your `.env` file
+
+### 6. Run the Application
 
 ```bash
 # Start the development server

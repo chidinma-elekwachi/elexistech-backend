@@ -1,10 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Alert, Dimensions } from 'react-native';
+import { View, StyleSheet, Alert, Dimensions, Platform } from 'react-native';
 import { Text, Surface, IconButton, Avatar, useTheme, ActivityIndicator, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import {
+    RtcEngine,
+    RtcLocalView,
+    RtcRemoteView,
+    VideoRenderMode
+} from 'react-native-agora';
 import authService from '../services/authService';
 import callService from '../services/callService';
+import agoraService from '../services/agoraService';
+import { requestCameraAndAudioPermission, requestAudioPermission } from '../services/permissions';
 
 const { width, height } = Dimensions.get('window');
 
@@ -19,14 +27,19 @@ const CallScreen = ({ route, navigation }) => {
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoEnabled, setIsVideoEnabled] = useState(true);
     const [isSpeakerOn, setIsSpeakerOn] = useState(false);
+    const [isCameraFront, setIsCameraFront] = useState(true);
+    const [agoraInitialized, setAgoraInitialized] = useState(false);
+    const [permissionsGranted, setPermissionsGranted] = useState(false);
     const callDurationRef = useRef(null);
 
     useEffect(() => {
         initializeUser();
+        initializeAgora();
         return () => {
             if (callDurationRef.current) {
                 clearInterval(callDurationRef.current);
             }
+            cleanupAgora();
         };
     }, []);
 
@@ -56,6 +69,72 @@ const CallScreen = ({ route, navigation }) => {
         }
     };
 
+    const initializeAgora = async () => {
+        try {
+            // Request permissions first
+            const hasPermissions = callType === 'video'
+                ? await requestCameraAndAudioPermission()
+                : await requestAudioPermission();
+
+            if (!hasPermissions) {
+                Alert.alert('Permissions Required', 'Camera and microphone permissions are required for calling');
+                navigation.goBack();
+                return;
+            }
+
+            setPermissionsGranted(true);
+
+            // Initialize Agora
+            await agoraService.initialize();
+            setAgoraInitialized(true);
+
+            // Set up Agora event callbacks
+            agoraService.setCallbacks({
+                onUserJoined: (uid) => {
+                    console.log('Remote user joined:', uid);
+                    if (callState === 'ringing') {
+                        setCallState('active');
+                        startCallTimer();
+                    }
+                },
+                onUserOffline: (uid, reason) => {
+                    console.log('Remote user offline:', uid, reason);
+                    endCall();
+                },
+                onJoinChannelSuccess: (channel, uid) => {
+                    console.log('Joined channel successfully:', channel, uid);
+                    if (callState === 'calling') {
+                        setCallState('ringing');
+                    }
+                },
+                onLeaveChannel: () => {
+                    console.log('Left channel');
+                    setCallState('ended');
+                },
+                onError: (error) => {
+                    console.error('Agora error:', error);
+                    Alert.alert('Call Error', 'An error occurred during the call');
+                    endCall();
+                }
+            });
+
+        } catch (error) {
+            console.error('Error initializing Agora:', error);
+            Alert.alert('Initialization Error', 'Failed to initialize calling service');
+            navigation.goBack();
+        }
+    };
+
+    const cleanupAgora = async () => {
+        try {
+            if (agoraInitialized) {
+                await agoraService.destroy();
+            }
+        } catch (error) {
+            console.error('Error cleaning up Agora:', error);
+        }
+    };
+
     useEffect(() => {
         // If navigated due to incoming call, set state accordingly
         if (incoming && incomingCallId) {
@@ -65,29 +144,23 @@ const CallScreen = ({ route, navigation }) => {
     }, [incoming, incomingCallId]);
 
     const startCall = async (type) => {
-        if (!currentUser) return;
+        if (!currentUser || !agoraInitialized) return;
 
         try {
             setCallType(type);
             setCallState('calling');
 
+            // Create channel name based on user IDs
+            const channelName = `call_${currentUser.uid}_${user.id}`;
+
             const callData = await callService.initializeCall(currentUser.uid, user.id, type);
             setCallId(callData.id);
 
+            // Join Agora channel
+            await agoraService.joinChannel(channelName);
+
             // Start call duration timer
             startCallTimer();
-
-            // In a real implementation, you would:
-            // 1. Create RTCPeerConnection
-            // 2. Get user media (camera/microphone)
-            // 3. Create offer
-            // 4. Set up signaling
-
-            Alert.alert(
-                'Call Started',
-                `Starting ${type} call with ${user.name}`,
-                [{ text: 'OK' }]
-            );
 
         } catch (error) {
             console.error('Error starting call:', error);
@@ -97,19 +170,16 @@ const CallScreen = ({ route, navigation }) => {
     };
 
     const answerCall = async () => {
-        if (!callId) return;
+        if (!callId || !agoraInitialized) return;
 
         try {
             setCallState('active');
+
+            // Join the same channel as the caller
+            const channelName = `call_${user.id}_${currentUser.uid}`;
+            await agoraService.joinChannel(channelName);
+
             startCallTimer();
-
-            // In a real implementation, you would:
-            // 1. Create RTCPeerConnection
-            // 2. Get user media
-            // 3. Set remote description
-            // 4. Create answer
-
-            Alert.alert('Call Answered', 'Call is now active');
         } catch (error) {
             console.error('Error answering call:', error);
             Alert.alert('Error', 'Failed to answer call');
@@ -118,6 +188,12 @@ const CallScreen = ({ route, navigation }) => {
 
     const endCall = async () => {
         try {
+            // Leave Agora channel
+            if (agoraInitialized && agoraService.isInCall()) {
+                await agoraService.leaveChannel();
+            }
+
+            // End call in Firestore
             if (callId) {
                 await callService.endCall(callId);
             }
@@ -159,19 +235,38 @@ const CallScreen = ({ route, navigation }) => {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const toggleMute = () => {
-        setIsMuted(!isMuted);
-        // In real implementation, mute/unmute microphone
+    const toggleMute = async () => {
+        try {
+            const newMutedState = !isMuted;
+            await agoraService.enableLocalAudio(!newMutedState);
+            setIsMuted(newMutedState);
+        } catch (error) {
+            console.error('Error toggling mute:', error);
+        }
     };
 
-    const toggleVideo = () => {
-        setIsVideoEnabled(!isVideoEnabled);
-        // In real implementation, enable/disable camera
+    const toggleVideo = async () => {
+        try {
+            const newVideoState = !isVideoEnabled;
+            await agoraService.enableLocalVideo(newVideoState);
+            setIsVideoEnabled(newVideoState);
+        } catch (error) {
+            console.error('Error toggling video:', error);
+        }
     };
 
     const toggleSpeaker = () => {
         setIsSpeakerOn(!isSpeakerOn);
-        // In real implementation, toggle speaker/earpiece
+        // Note: Speaker control would need additional Agora configuration
+    };
+
+    const switchCamera = async () => {
+        try {
+            await agoraService.switchCamera();
+            setIsCameraFront(!isCameraFront);
+        } catch (error) {
+            console.error('Error switching camera:', error);
+        }
     };
 
     const renderCallControls = () => {
@@ -237,6 +332,15 @@ const CallScreen = ({ route, navigation }) => {
                             style={[styles.controlButton, isVideoEnabled ? styles.videoOnButton : styles.videoOffButton]}
                             onPress={toggleVideo}
                         />
+                        {callType === 'video' && (
+                            <IconButton
+                                icon="camera-flip"
+                                size={30}
+                                iconColor="white"
+                                style={[styles.controlButton, styles.cameraButton]}
+                                onPress={switchCamera}
+                            />
+                        )}
                         <IconButton
                             icon={isSpeakerOn ? "volume-high" : "volume-low"}
                             size={30}
@@ -273,30 +377,42 @@ const CallScreen = ({ route, navigation }) => {
     };
 
     const renderVideoView = () => {
-        if (callType === 'video' && callState === 'active') {
+        if (callType === 'video' && callState === 'active' && agoraInitialized) {
             return (
                 <View style={styles.videoContainer}>
+                    {/* Remote Video */}
                     <View style={styles.remoteVideo}>
-                        <Avatar.Image
-                            size={120}
-                            source={
-                                user.avatar
-                                    ? { uri: user.avatar }
-                                    : require('../../assets/favicon.png')
-                            }
+                        <RtcRemoteView.SurfaceView
+                            style={styles.remoteVideoSurface}
+                            uid={agoraService.getRemoteUid()}
+                            channelId={agoraService.getChannelName()}
+                            renderMode={VideoRenderMode.Hidden}
                         />
-                        <Text style={styles.videoLabel}>Remote Video</Text>
+                        {!agoraService.getRemoteUid() && (
+                            <View style={styles.noRemoteVideo}>
+                                <Avatar.Image
+                                    size={120}
+                                    source={
+                                        user.avatar
+                                            ? { uri: user.avatar }
+                                            : require('../../assets/favicon.png')
+                                    }
+                                />
+                                <Text style={styles.waitingText}>Waiting for {user.name}...</Text>
+                            </View>
+                        )}
                     </View>
+
+                    {/* Local Video */}
                     <View style={styles.localVideo}>
-                        <Avatar.Image
-                            size={80}
-                            source={
-                                currentUser?.profile?.avatar
-                                    ? { uri: currentUser.profile.avatar }
-                                    : require('../../assets/favicon.png')
-                            }
+                        <RtcLocalView.SurfaceView
+                            style={styles.localVideoSurface}
+                            channelId={agoraService.getChannelName()}
+                            renderMode={VideoRenderMode.Hidden}
                         />
-                        <Text style={styles.videoLabel}>You</Text>
+                        <View style={styles.localVideoOverlay}>
+                            <Text style={styles.localVideoLabel}>You</Text>
+                        </View>
                     </View>
                 </View>
             );
@@ -415,26 +531,55 @@ const styles = StyleSheet.create({
     },
     remoteVideo: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
         backgroundColor: 'rgba(0,0,0,0.3)',
         borderRadius: 12,
+        overflow: 'hidden',
+    },
+    remoteVideoSurface: {
+        flex: 1,
+    },
+    noRemoteVideo: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    waitingText: {
+        color: 'white',
+        fontSize: 16,
+        marginTop: 16,
+        textAlign: 'center',
     },
     localVideo: {
         position: 'absolute',
         top: 16,
         right: 16,
         width: 120,
-        height: 120,
-        justifyContent: 'center',
-        alignItems: 'center',
+        height: 160,
+        borderRadius: 12,
+        overflow: 'hidden',
         backgroundColor: 'rgba(0,0,0,0.5)',
-        borderRadius: 8,
     },
-    videoLabel: {
+    localVideoSurface: {
+        flex: 1,
+    },
+    localVideoOverlay: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+    },
+    localVideoLabel: {
         color: 'white',
         fontSize: 12,
-        marginTop: 8,
+        textAlign: 'center',
     },
     controlsContainer: {
         padding: 20,
@@ -495,6 +640,9 @@ const styles = StyleSheet.create({
     },
     speakerButton: {
         backgroundColor: '#9C27B0',
+    },
+    cameraButton: {
+        backgroundColor: '#FF5722',
     },
     callEndedText: {
         color: 'white',

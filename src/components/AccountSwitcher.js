@@ -3,7 +3,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { List, Avatar, IconButton, Text, Surface, useTheme, Button } from 'react-native-paper';
 import authService from '../services/authService';
 
-const AccountSwitcher = ({ onClose, currentUser, savedAccounts }) => {
+const AccountSwitcher = ({ onClose, currentUser, savedAccounts, onAddAccount }) => {
     const theme = useTheme();
 
     const handleSwitchAccount = async (uid) => {
@@ -91,13 +91,24 @@ const AccountSwitcher = ({ onClose, currentUser, savedAccounts }) => {
                 )}
             </ScrollView>
 
-            <Button
-                mode="outlined"
-                onPress={onClose}
-                style={styles.closeButton}
-            >
-                Close
-            </Button>
+            <View style={styles.buttonContainer}>
+                <Button
+                    mode="contained"
+                    icon="account-plus"
+                    onPress={onAddAccount}
+                    style={styles.addButton}
+                    contentStyle={{ paddingVertical: 4 }}
+                >
+                    Add Account
+                </Button>
+                <Button
+                    mode="outlined"
+                    onPress={onClose}
+                    style={styles.closeButton}
+                >
+                    Close
+                </Button>
+            </View>
         </Surface>
     );
 };
@@ -158,8 +169,15 @@ const styles = StyleSheet.create({
         padding: 20,
         alignItems: 'center',
     },
+    buttonContainer: {
+        padding: 16,
+        gap: 12,
+    },
+    addButton: {
+        marginBottom: 8,
+    },
     closeButton: {
-        margin: 16,
+        marginTop: 0,
     },
 });
 
