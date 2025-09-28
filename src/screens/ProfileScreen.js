@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Modal, Dimensions, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Modal, Dimensions, TouchableOpacity, Alert } from 'react-native';
 import { Avatar, Text, Button, Surface, useTheme, IconButton, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -223,10 +223,54 @@ const ProfileScreen = ({ navigation }) => {
             (async () => {
                 const cu = await authService.getCurrentUser();
                 if (cu?.uid) {
-                    unsubscribeCall = callService.listenForIncomingCalls(cu.uid, (call) => {
+                    unsubscribeCall = callService.listenForIncomingCalls(cu.uid, async (call) => {
                         if (call && (call.status === 'initializing' || call.status === 'offering' || call.status === 'ringing')) {
-                            // Navigate to Call screen with caller info minimal
-                            navigation.navigate('Call', { user: { id: call.callerId, name: 'Incoming Caller', avatar: null }, incoming: true, callId: call.id });
+                            console.log('Incoming call received:', call);
+
+                            // Get caller's profile information
+                            let callerName = 'Unknown Caller';
+                            let callerAvatar = null;
+                            try {
+                                const callerProfile = await authService.getUserProfile(call.callerId);
+                                if (callerProfile) {
+                                    callerName = callerProfile.name || callerProfile.email || 'Unknown Caller';
+                                    callerAvatar = callerProfile.avatar;
+                                }
+                            } catch (error) {
+                                console.error('Error fetching caller profile:', error);
+                            }
+
+                            // Show incoming call alert
+                            Alert.alert(
+                                'Incoming Call',
+                                `${callerName} is calling you`,
+                                [
+                                    {
+                                        text: 'Decline',
+                                        style: 'cancel',
+                                        onPress: () => {
+                                            console.log('Call declined');
+                                            callService.endCall(call.id);
+                                        }
+                                    },
+                                    {
+                                        text: 'Answer',
+                                        onPress: () => {
+                                            console.log('Call answered');
+                                            navigation.navigate('Call', {
+                                                user: {
+                                                    id: call.callerId,
+                                                    name: callerName,
+                                                    avatar: callerAvatar
+                                                },
+                                                incoming: true,
+                                                callId: call.id
+                                            });
+                                        }
+                                    }
+                                ],
+                                { cancelable: false }
+                            );
                         }
                     });
                 }

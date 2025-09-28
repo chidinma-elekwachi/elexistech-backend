@@ -3,7 +3,10 @@ import { View, StyleSheet, Alert, Dimensions, Platform } from 'react-native';
 import { Text, Surface, IconButton, Avatar, useTheme, ActivityIndicator, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import createAgoraRtcEngine from 'react-native-agora';
+import createAgoraRtcEngine, {
+    RtcSurfaceView,
+    RtcTextureView
+} from 'react-native-agora';
 import authService from '../services/authService';
 import callService from '../services/callService';
 import agoraService from '../services/agoraService';
@@ -30,6 +33,7 @@ const CallScreen = ({ route, navigation }) => {
     useEffect(() => {
         initializeUser();
         initializeAgora();
+        
         return () => {
             if (callDurationRef.current) {
                 clearInterval(callDurationRef.current);
@@ -37,6 +41,72 @@ const CallScreen = ({ route, navigation }) => {
             cleanupAgora();
         };
     }, []);
+
+    // Listen for call status changes
+    useEffect(() => {
+        let callUnsubscribe;
+        if (callId) {
+            console.log('Setting up call listener for callId:', callId);
+            callUnsubscribe = callService.listenToCall(callId, (callData) => {
+                console.log('Call status updated:', callData);
+                if (callData.status === 'active' && callState === 'calling') {
+                    console.log('Call became active, updating state');
+                    setCallState('active');
+                    startCallTimer();
+                }
+            });
+        }
+        
+        return () => {
+            if (callUnsubscribe) {
+                console.log('Cleaning up call listener');
+                callUnsubscribe();
+            }
+        };
+    }, [callId, callState]);
+
+    // Listen for incoming calls (for when user is directly on call screen)
+    useEffect(() => {
+        let incomingCallUnsubscribe;
+        if (currentUser?.uid) {
+            console.log('Setting up incoming call listener for user:', currentUser.uid);
+            incomingCallUnsubscribe = callService.listenForIncomingCalls(currentUser.uid, async (call) => {
+                console.log('Incoming call detected in ChatScreen:', call);
+                if (call && (call.status === 'initializing' || call.status === 'offering' || call.status === 'ringing')) {
+                    // This is an incoming call for the current user
+                    setCallId(call.id);
+                    setCallState('ringing');
+                    
+                    // Get caller's profile information
+                    let callerName = 'Unknown Caller';
+                    let callerAvatar = null;
+                    try {
+                        const callerProfile = await authService.getUserProfile(call.callerId);
+                        if (callerProfile) {
+                            callerName = callerProfile.name || callerProfile.email || 'Unknown Caller';
+                            callerAvatar = callerProfile.avatar;
+                        }
+                    } catch (error) {
+                        console.error('Error fetching caller profile:', error);
+                    }
+                    
+                    // Update the user object with caller info
+                    setUser({ 
+                        id: call.callerId, 
+                        name: callerName, 
+                        avatar: callerAvatar 
+                    });
+                }
+            });
+        }
+        
+        return () => {
+            if (incomingCallUnsubscribe) {
+                console.log('Cleaning up incoming call listener');
+                incomingCallUnsubscribe();
+            }
+        };
+    }, [currentUser?.uid]);
 
     // Re-initialize when active user changes
     useEffect(() => {
@@ -87,7 +157,7 @@ const CallScreen = ({ route, navigation }) => {
             agoraService.setCallbacks({
                 onUserJoined: (uid) => {
                     console.log('Remote user joined:', uid);
-                    if (callState === 'ringing') {
+                    if (callState === 'ringing' || callState === 'calling') {
                         setCallState('active');
                         startCallTimer();
                     }
@@ -151,6 +221,11 @@ const CallScreen = ({ route, navigation }) => {
             const callData = await callService.initializeCall(currentUser.uid, user.id, type);
             setCallId(callData.id);
 
+            console.log('Call initialized:', callData);
+
+            // Set call to ringing status to notify receiver
+            await callService.setRinging(callData.id);
+
             // Join Agora channel
             await agoraService.joinChannel(channelName);
 
@@ -173,6 +248,11 @@ const CallScreen = ({ route, navigation }) => {
             // Join the same channel as the caller
             const channelName = `call_${user.id}_${currentUser.uid}`;
             await agoraService.joinChannel(channelName);
+
+            // Update call status in Firestore to 'active'
+            if (callId) {
+                await callService.setAnswer(callId, { answer: 'accepted' });
+            }
 
             startCallTimer();
         } catch (error) {
@@ -375,18 +455,16 @@ const CallScreen = ({ route, navigation }) => {
         if (callType === 'video' && callState === 'active' && agoraInitialized) {
             return (
                 <View style={styles.videoContainer}>
-                    {/* Remote Video */}
-                    <View style={styles.remoteVideo}>
-                        <RtcRemoteView.SurfaceView
-                            style={styles.remoteVideoSurface}
-                            uid={agoraService.getRemoteUid()}
-                            channelId={agoraService.getChannelName()}
-                            renderMode={VideoRenderMode.Hidden}
+                    {/* Main Remote Video - Full Screen */}
+                    <View style={styles.mainVideoContainer}>
+                        <RtcSurfaceView
+                            style={styles.mainVideoSurface}
+                            canvas={{ uid: agoraService.getRemoteUid() }}
                         />
                         {!agoraService.getRemoteUid() && (
-                            <View style={styles.noRemoteVideo}>
+                            <View style={styles.noRemoteVideoOverlay}>
                                 <Avatar.Image
-                                    size={120}
+                                    size={150}
                                     source={
                                         user.avatar
                                             ? { uri: user.avatar }
@@ -398,12 +476,11 @@ const CallScreen = ({ route, navigation }) => {
                         )}
                     </View>
 
-                    {/* Local Video */}
-                    <View style={styles.localVideo}>
-                        <RtcLocalView.SurfaceView
+                    {/* Local Video - Picture in Picture */}
+                    <View style={styles.localVideoPip}>
+                        <RtcSurfaceView
                             style={styles.localVideoSurface}
-                            channelId={agoraService.getChannelName()}
-                            renderMode={VideoRenderMode.Hidden}
+                            canvas={{ uid: agoraService.getLocalUid() }}
                         />
                         <View style={styles.localVideoOverlay}>
                             <Text style={styles.localVideoLabel}>You</Text>
@@ -421,60 +498,64 @@ const CallScreen = ({ route, navigation }) => {
                 colors={callState === 'active' ? ['#1a1a1a', '#2d2d2d'] : ['#2196F3', '#1976D2']}
                 style={styles.gradient}
             >
-                {/* Header */}
-                <View style={styles.header}>
-                    <IconButton
-                        icon="arrow-left"
-                        size={24}
-                        iconColor="white"
-                        onPress={() => {
-                            if (callState === 'active') {
-                                Alert.alert(
-                                    'End Call',
-                                    'Are you sure you want to end the call?',
-                                    [
-                                        { text: 'Cancel', style: 'cancel' },
-                                        { text: 'End Call', style: 'destructive', onPress: endCall }
-                                    ]
-                                );
-                            } else {
-                                navigation.goBack();
-                            }
-                        }}
-                    />
-                    <View style={styles.headerInfo}>
-                        <Text variant="titleLarge" style={styles.headerName}>
-                            {user.name}
-                        </Text>
-                        <Text variant="bodyMedium" style={styles.headerStatus}>
-                            {callState === 'calling' ? 'Calling...' :
-                                callState === 'ringing' ? 'Incoming call' :
-                                    callState === 'active' ? 'Connected' :
-                                        callState === 'ended' ? 'Call ended' :
-                                            'Ready to call'}
-                        </Text>
-                        {callState === 'active' && (
-                            <Text variant="bodySmall" style={styles.durationText}>
-                                {formatDuration(callDuration)}
-                            </Text>
-                        )}
-                    </View>
-                </View>
-
-                {/* User Avatar */}
-                <View style={styles.avatarContainer}>
-                    <Avatar.Image
-                        size={callState === 'active' ? 100 : 150}
-                        source={
-                            user.avatar
-                                ? { uri: user.avatar }
-                                : require('../../assets/favicon.png')
-                        }
-                    />
-                </View>
-
                 {/* Video View */}
                 {renderVideoView()}
+
+                {/* Header - Only show when not in active video call */}
+                {!(callType === 'video' && callState === 'active') && (
+                    <View style={styles.header}>
+                        <IconButton
+                            icon="arrow-left"
+                            size={24}
+                            iconColor="white"
+                            onPress={() => {
+                                if (callState === 'active') {
+                                    Alert.alert(
+                                        'End Call',
+                                        'Are you sure you want to end the call?',
+                                        [
+                                            { text: 'Cancel', style: 'cancel' },
+                                            { text: 'End Call', style: 'destructive', onPress: endCall }
+                                        ]
+                                    );
+                                } else {
+                                    navigation.goBack();
+                                }
+                            }}
+                        />
+                        <View style={styles.headerInfo}>
+                            <Text variant="titleLarge" style={styles.headerName}>
+                                {user.name}
+                            </Text>
+                            <Text variant="bodyMedium" style={styles.headerStatus}>
+                                {callState === 'calling' ? 'Calling...' :
+                                    callState === 'ringing' ? 'Incoming call' :
+                                        callState === 'active' ? 'Connected' :
+                                            callState === 'ended' ? 'Call ended' :
+                                                'Ready to call'}
+                            </Text>
+                            {callState === 'active' && (
+                                <Text variant="bodySmall" style={styles.durationText}>
+                                    {formatDuration(callDuration)}
+                                </Text>
+                            )}
+                        </View>
+                    </View>
+                )}
+
+                {/* User Avatar - Only show when not in active video call */}
+                {!(callType === 'video' && callState === 'active') && (
+                    <View style={styles.avatarContainer}>
+                        <Avatar.Image
+                            size={callState === 'active' ? 100 : 150}
+                            source={
+                                user.avatar
+                                    ? { uri: user.avatar }
+                                    : require('../../assets/favicon.png')
+                            }
+                        />
+                    </View>
+                )}
 
                 {/* Call Controls */}
                 <View style={styles.controlsContainer}>
@@ -522,18 +603,17 @@ const styles = StyleSheet.create({
     videoContainer: {
         flex: 1,
         position: 'relative',
-        margin: 16,
     },
-    remoteVideo: {
+    mainVideoContainer: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        borderRadius: 12,
-        overflow: 'hidden',
+        backgroundColor: '#000',
     },
-    remoteVideoSurface: {
+    mainVideoSurface: {
         flex: 1,
+        width: '100%',
+        height: '100%',
     },
-    noRemoteVideo: {
+    noRemoteVideoOverlay: {
         position: 'absolute',
         top: 0,
         left: 0,
@@ -541,13 +621,40 @@ const styles = StyleSheet.create({
         bottom: 0,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: 'rgba(0,0,0,0.8)',
     },
-    waitingText: {
-        color: 'white',
-        fontSize: 16,
-        marginTop: 16,
-        textAlign: 'center',
+    localVideoPip: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        width: 140,
+        height: 180,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        borderRadius: 12,
+        overflow: 'hidden',
+        borderWidth: 2,
+        borderColor: 'rgba(255,255,255,0.3)',
+    },
+    localVideoSurface: {
+        flex: 1,
+    },
+    localVideoOverlay: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        padding: 6,
+    },
+    controlsContainer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        paddingVertical: 20,
+        paddingHorizontal: 20,
+        paddingBottom: 40,
     },
     localVideo: {
         position: 'absolute',

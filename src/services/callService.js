@@ -47,6 +47,18 @@ class CallService {
         }
     }
 
+    // Set call to ringing status
+    async setRinging(callId) {
+        try {
+            await updateDoc(doc(this.callsCollection, callId), {
+                status: 'ringing',
+            });
+        } catch (error) {
+            console.error('Set ringing error:', error);
+            throw error;
+        }
+    }
+
     // Set call answer
     async setAnswer(callId, answer) {
         try {
@@ -108,18 +120,48 @@ class CallService {
 
     // Listen for the most recent incoming call for a user
     listenForIncomingCalls(userId, callback) {
+        if (!userId) {
+            console.warn('listenForIncomingCalls: userId is null or undefined');
+            return () => { }; // Return a no-op unsubscribe function
+        }
+
+        console.log('Setting up incoming call listener for user:', userId);
+
+        // Simplified query to avoid composite index requirement
         const q = query(
             this.callsCollection,
             where('receiverId', '==', userId),
-            where('status', 'in', ['initializing', 'offering', 'ringing']),
-            orderBy('startedAt', 'desc'),
-            limit(1)
+            where('status', 'in', ['initializing', 'offering', 'ringing'])
         );
+
         return onSnapshot(q, (snapshot) => {
-            if (!snapshot.empty) {
-                const data = snapshot.docs[0].data();
-                callback(data);
+            console.log('Incoming call snapshot:', snapshot.docs.length, 'calls');
+
+            // Process all calls and find the most recent one
+            let mostRecentCall = null;
+            let mostRecentTime = null;
+
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === 'added' || change.type === 'modified') {
+                    const callData = { id: change.doc.id, ...change.doc.data() };
+
+                    // Convert startedAt to comparable timestamp
+                    const callTime = callData.startedAt?.toDate?.() || callData.startedAt || new Date(0);
+
+                    if (!mostRecentCall || callTime > mostRecentTime) {
+                        mostRecentCall = callData;
+                        mostRecentTime = callTime;
+                    }
+                }
+            });
+
+            // Only trigger callback for the most recent call
+            if (mostRecentCall) {
+                console.log('Most recent incoming call detected:', mostRecentCall);
+                callback(mostRecentCall);
             }
+        }, (error) => {
+            console.error('Error listening for incoming calls:', error);
         });
     }
 

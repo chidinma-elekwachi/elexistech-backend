@@ -1,4 +1,10 @@
-import createAgoraRtcEngine from 'react-native-agora';
+import createAgoraRtcEngine, {
+    RtcSurfaceView,
+    RtcTextureView,
+    ChannelProfileType,
+    ClientRoleType,
+    UserOfflineReasonType
+} from 'react-native-agora';
 import { AGORA_APP_ID } from '@env';
 
 
@@ -33,11 +39,13 @@ class AgoraService {
                 throw new Error('Agora App ID is not configured');
             }
 
-            this.engine = await createAgoraRtcEngine(AGORA_APP_ID);
-            await this.engine.initialize();
-            await this.engine.enableVideo();
-            await this.engine.setChannelProfile(1); // Communication = 1
-            await this.engine.setClientRole(1); // Broadcaster = 1
+            this.engine = createAgoraRtcEngine();
+            this.engine.initialize({
+                appId: AGORA_APP_ID,
+                channelProfile: ChannelProfileType.ChannelProfileCommunication
+            });
+            this.engine.enableVideo();
+            this.engine.setClientRole(ClientRoleType.ClientRoleBroadcaster);
 
             this.setupEventListeners();
             this.isInitialized = true;
@@ -54,51 +62,47 @@ class AgoraService {
      * Setup event listeners for Agora events
      */
     setupEventListeners() {
-        this.engine.addListener('Warning', (warn) => {
-            console.log('Agora Warning:', warn);
-        });
-
-        this.engine.addListener('Error', (err) => {
-            console.error('Agora Error:', err);
-            if (this.callbacks.onError) {
-                this.callbacks.onError(err);
-            }
-        });
-
-        this.engine.addListener('UserJoined', (uid, elapsed) => {
-            console.log('User joined:', uid, elapsed);
-            this.remoteUid = uid;
-            if (this.callbacks.onUserJoined) {
-                this.callbacks.onUserJoined(uid);
-            }
-        });
-
-        this.engine.addListener('UserOffline', (uid, reason) => {
-            console.log('User offline:', uid, reason);
-            if (uid === this.remoteUid) {
+        this.engine.registerEventHandler({
+            onJoinChannelSuccess: (connection, elapsed) => {
+                console.log('Join channel success:', connection.channelId, elapsed);
+                this.channelName = connection.channelId;
+                this.localUid = connection.localUid;
+                this.isInChannel = true;
+                if (this.callbacks.onJoinChannelSuccess) {
+                    this.callbacks.onJoinChannelSuccess(connection.channelId, connection.localUid);
+                }
+            },
+            onUserJoined: (connection, remoteUid, elapsed) => {
+                console.log('User joined:', remoteUid, elapsed);
+                this.remoteUid = remoteUid;
+                if (this.callbacks.onUserJoined) {
+                    this.callbacks.onUserJoined(remoteUid);
+                }
+            },
+            onUserOffline: (connection, remoteUid, reason) => {
+                console.log('User offline:', remoteUid, reason);
+                if (remoteUid === this.remoteUid) {
+                    this.remoteUid = null;
+                }
+                if (this.callbacks.onUserOffline) {
+                    this.callbacks.onUserOffline(remoteUid, reason);
+                }
+            },
+            onLeaveChannel: (connection, stats) => {
+                console.log('Leave channel:', stats);
+                this.channelName = null;
+                this.localUid = null;
                 this.remoteUid = null;
-            }
-            if (this.callbacks.onUserOffline) {
-                this.callbacks.onUserOffline(uid, reason);
-            }
-        });
-
-        this.engine.addListener('JoinChannelSuccess', (channel, uid, elapsed) => {
-            console.log('Join channel success:', channel, uid, elapsed);
-            this.localUid = uid;
-            this.isInChannel = true;
-            if (this.callbacks.onJoinChannelSuccess) {
-                this.callbacks.onJoinChannelSuccess(channel, uid);
-            }
-        });
-
-        this.engine.addListener('LeaveChannel', (stats) => {
-            console.log('Leave channel:', stats);
-            this.isInChannel = false;
-            this.localUid = null;
-            this.remoteUid = null;
-            if (this.callbacks.onLeaveChannel) {
-                this.callbacks.onLeaveChannel(stats);
+                this.isInChannel = false;
+                if (this.callbacks.onLeaveChannel) {
+                    this.callbacks.onLeaveChannel();
+                }
+            },
+            onError: (err, msg) => {
+                console.error('Agora Error:', err, msg);
+                if (this.callbacks.onError) {
+                    this.callbacks.onError(err);
+                }
             }
         });
     }
@@ -118,7 +122,14 @@ class AgoraService {
             }
 
             this.channelName = channelName;
-            await this.engine.joinChannel(token, channelName, null, 0);
+            this.engine.joinChannel(
+                token || '',
+                channelName,
+                0, // uid (0 for auto-assign)
+                {
+                    clientRoleType: ClientRoleType.ClientRoleBroadcaster,
+                }
+            );
 
             console.log('Joining channel:', channelName);
         } catch (error) {
@@ -241,6 +252,16 @@ class AgoraService {
      */
     getRemoteUid() {
         return this.remoteUid;
+    }
+
+    /**
+     * Get video rendering components
+     */
+    getVideoComponents() {
+        return {
+            RtcSurfaceView,
+            RtcTextureView
+        };
     }
 
     /**
