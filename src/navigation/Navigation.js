@@ -9,6 +9,7 @@ import AuthScreen from '../screens/AuthScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import UsersScreen from '../screens/UsersScreen';
+import MediaShareScreen from '../screens/MediaShareScreen';
 import ChatScreen from '../screens/ChatScreen';
 
 const Stack = createNativeStackNavigator();
@@ -27,6 +28,8 @@ const MainTabs = () => {
                         iconName = 'phone';
                     } else if (route.name === 'Profile') {
                         iconName = 'account';
+                    } else if (route.name === 'Media') {
+                        iconName = 'image-multiple';
                     }
 
                     return <IconButton icon={iconName} size={size} iconColor={color} />;
@@ -50,6 +53,7 @@ const MainTabs = () => {
         >
             <Tab.Screen name="Profile" component={ProfileScreen} />
             <Tab.Screen name="Users" component={UsersScreen} />
+            <Tab.Screen name="Media" component={MediaShareScreen} />
         </Tab.Navigator>
     );
 };

@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, getDoc, updateDoc, serverTimestamp, arrayUnion, onSnapshot } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, updateDoc, serverTimestamp, arrayUnion, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 class CallService {
@@ -102,6 +102,23 @@ class CallService {
         return onSnapshot(doc(this.callsCollection, callId), (doc) => {
             if (doc.exists()) {
                 callback(doc.data());
+            }
+        });
+    }
+
+    // Listen for the most recent incoming call for a user
+    listenForIncomingCalls(userId, callback) {
+        const q = query(
+            this.callsCollection,
+            where('receiverId', '==', userId),
+            where('status', 'in', ['initializing', 'offering', 'ringing']),
+            orderBy('startedAt', 'desc'),
+            limit(1)
+        );
+        return onSnapshot(q, (snapshot) => {
+            if (!snapshot.empty) {
+                const data = snapshot.docs[0].data();
+                callback(data);
             }
         });
     }

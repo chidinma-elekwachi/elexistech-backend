@@ -9,7 +9,7 @@ import callService from '../services/callService';
 const { width, height } = Dimensions.get('window');
 
 const CallScreen = ({ route, navigation }) => {
-    const { user } = route.params;
+    const { user, incoming = false, callId: incomingCallId } = route.params;
     const theme = useTheme();
     const [currentUser, setCurrentUser] = useState(null);
     const [callState, setCallState] = useState('idle'); // idle, calling, ringing, active, ended
@@ -55,6 +55,14 @@ const CallScreen = ({ route, navigation }) => {
             navigation.goBack();
         }
     };
+
+    useEffect(() => {
+        // If navigated due to incoming call, set state accordingly
+        if (incoming && incomingCallId) {
+            setCallId(incomingCallId);
+            setCallState('ringing');
+        }
+    }, [incoming, incomingCallId]);
 
     const startCall = async (type) => {
         if (!currentUser) return;

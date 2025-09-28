@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import authService from '../services/authService';
 import AccountSwitcher from '../components/AccountSwitcher';
 import { useFocusEffect } from '@react-navigation/native';
+import callService from '../services/callService';
 
 const { width } = Dimensions.get('window');
 
@@ -216,6 +217,24 @@ const ProfileScreen = ({ navigation }) => {
         useCallback(() => {
             refreshUser();
             refreshSavedAccounts();
+
+            // Listen for incoming calls
+            let unsubscribeCall;
+            (async () => {
+                const cu = await authService.getCurrentUser();
+                if (cu?.uid) {
+                    unsubscribeCall = callService.listenForIncomingCalls(cu.uid, (call) => {
+                        if (call && (call.status === 'initializing' || call.status === 'offering' || call.status === 'ringing')) {
+                            // Navigate to Call screen with caller info minimal
+                            navigation.navigate('Call', { user: { id: call.callerId, name: 'Incoming Caller', avatar: null }, incoming: true, callId: call.id });
+                        }
+                    });
+                }
+            })();
+
+            return () => {
+                if (unsubscribeCall) unsubscribeCall();
+            };
         }, [refreshUser, refreshSavedAccounts])
     );
 
