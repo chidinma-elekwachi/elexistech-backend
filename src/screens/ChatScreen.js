@@ -3,12 +3,7 @@ import { View, StyleSheet, Alert, Dimensions, Platform } from 'react-native';
 import { Text, Surface, IconButton, Avatar, useTheme, ActivityIndicator, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-    RtcEngine,
-    RtcLocalView,
-    RtcRemoteView,
-    VideoRenderMode
-} from 'react-native-agora';
+import createAgoraRtcEngine from 'react-native-agora';
 import authService from '../services/authService';
 import callService from '../services/callService';
 import agoraService from '../services/agoraService';
@@ -128,7 +123,7 @@ const CallScreen = ({ route, navigation }) => {
     const cleanupAgora = async () => {
         try {
             if (agoraInitialized) {
-                await agoraService.destroy();
+                await agoraService.release();
             }
         } catch (error) {
             console.error('Error cleaning up Agora:', error);

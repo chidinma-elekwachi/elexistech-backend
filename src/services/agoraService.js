@@ -1,16 +1,6 @@
-import agora, {
-    RtcEngine,
-    RtcLocalView,
-    RtcRemoteView,
-    VideoRenderMode,
-    ChannelProfile,
-    ClientRole
-} from 'react-native-agora';
+import createAgoraRtcEngine from 'react-native-agora';
 import { AGORA_APP_ID } from '@env';
 
-console.log('Imported RtcEngine:', RtcEngine);
-console.log('RtcEngine type:', typeof RtcEngine);
-console.log('agora:', agora);
 
 class AgoraService {
     constructor() {
@@ -43,12 +33,11 @@ class AgoraService {
                 throw new Error('Agora App ID is not configured');
             }
 
-            console.log('RtcEngine:', RtcEngine);
-            console.log('RtcEngine.create:', RtcEngine.create);
-            this.engine = await RtcEngine.create(AGORA_APP_ID);
+            this.engine = await createAgoraRtcEngine(AGORA_APP_ID);
+            await this.engine.initialize();
             await this.engine.enableVideo();
-            await this.engine.setChannelProfile(ChannelProfile.Communication);
-            await this.engine.setClientRole(ClientRole.Broadcaster);
+            await this.engine.setChannelProfile(1); // Communication = 1
+            await this.engine.setClientRole(1); // Broadcaster = 1
 
             this.setupEventListeners();
             this.isInitialized = true;
@@ -150,10 +139,32 @@ class AgoraService {
 
             await this.engine.leaveChannel();
             this.channelName = null;
+            this.isInChannel = false;
 
             console.log('Left channel');
         } catch (error) {
             console.error('Failed to leave channel:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Release the RTC engine
+     */
+    async release() {
+        try {
+            if (this.engine) {
+                await this.engine.release();
+                this.engine = null;
+                this.isInitialized = false;
+                this.isInChannel = false;
+                this.channelName = null;
+                this.localUid = null;
+                this.remoteUid = null;
+                console.log('Agora RTC Engine released');
+            }
+        } catch (error) {
+            console.error('Failed to release engine:', error);
             throw error;
         }
     }
@@ -242,9 +253,13 @@ class AgoraService {
             }
 
             if (this.engine) {
-                await this.engine.destroy();
+                await this.engine.release();
                 this.engine = null;
                 this.isInitialized = false;
+                this.isInChannel = false;
+                this.channelName = null;
+                this.localUid = null;
+                this.remoteUid = null;
             }
 
             console.log('Agora engine destroyed');
