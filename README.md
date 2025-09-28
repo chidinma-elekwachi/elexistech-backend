@@ -51,6 +51,9 @@ A comprehensive React Native application featuring Firebase authentication, acco
   <img src="assets/ss2.png" alt="App Screenshot 2" width="200" />
   <img src="assets/ss3.png" alt="App Screenshot 3" width="200" />
   <img src="assets/ss4.png" alt="App Screenshot 4" width="200" />
+  <img src="assets/ss5.png" alt="App Screenshot 5" width="200" />
+  <img src="assets/ss6.png" alt="App Screenshot 6" width="200" />
+
 </div>
 
 ## 🚀 Quick Start
