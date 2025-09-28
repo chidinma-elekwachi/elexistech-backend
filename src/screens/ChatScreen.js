@@ -33,7 +33,7 @@ const CallScreen = ({ route, navigation }) => {
     useEffect(() => {
         initializeUser();
         initializeAgora();
-        
+
         return () => {
             if (callDurationRef.current) {
                 clearInterval(callDurationRef.current);
@@ -56,7 +56,7 @@ const CallScreen = ({ route, navigation }) => {
                 }
             });
         }
-        
+
         return () => {
             if (callUnsubscribe) {
                 console.log('Cleaning up call listener');
@@ -76,7 +76,7 @@ const CallScreen = ({ route, navigation }) => {
                     // This is an incoming call for the current user
                     setCallId(call.id);
                     setCallState('ringing');
-                    
+
                     // Get caller's profile information
                     let callerName = 'Unknown Caller';
                     let callerAvatar = null;
@@ -89,17 +89,17 @@ const CallScreen = ({ route, navigation }) => {
                     } catch (error) {
                         console.error('Error fetching caller profile:', error);
                     }
-                    
+
                     // Update the user object with caller info
-                    setUser({ 
-                        id: call.callerId, 
-                        name: callerName, 
-                        avatar: callerAvatar 
+                    setUser({
+                        id: call.callerId,
+                        name: callerName,
+                        avatar: callerAvatar
                     });
                 }
             });
         }
-        
+
         return () => {
             if (incomingCallUnsubscribe) {
                 console.log('Cleaning up incoming call listener');
@@ -124,9 +124,20 @@ const CallScreen = ({ route, navigation }) => {
         try {
             const activeUser = await authService.getCurrentUser();
             if (!activeUser) {
+                console.log('No active user found, navigating back');
                 navigation.goBack();
                 return;
             }
+
+            console.log('Current user initialized:', activeUser.uid);
+            console.log('Target user from params:', user);
+
+            if (!user || !user.id) {
+                console.log('No target user provided, navigating back');
+                navigation.goBack();
+                return;
+            }
+
             setCurrentUser(activeUser);
         } catch (error) {
             console.error('Error initializing user:', error);
@@ -136,10 +147,8 @@ const CallScreen = ({ route, navigation }) => {
 
     const initializeAgora = async () => {
         try {
-            // Request permissions first
-            const hasPermissions = callType === 'video'
-                ? await requestCameraAndAudioPermission()
-                : await requestAudioPermission();
+            // Request permissions first - always request both camera and audio permissions
+            const hasPermissions = await requestCameraAndAudioPermission();
 
             if (!hasPermissions) {
                 Alert.alert('Permissions Required', 'Camera and microphone permissions are required for calling');
@@ -209,7 +218,15 @@ const CallScreen = ({ route, navigation }) => {
     }, [incoming, incomingCallId]);
 
     const startCall = async (type) => {
-        if (!currentUser || !agoraInitialized) return;
+        console.log('startCall called with type:', type);
+        console.log('currentUser:', currentUser);
+        console.log('agoraInitialized:', agoraInitialized);
+        console.log('target user:', user);
+
+        if (!currentUser || !agoraInitialized) {
+            console.log('Cannot start call - missing requirements');
+            return;
+        }
 
         try {
             setCallType(type);
@@ -217,6 +234,7 @@ const CallScreen = ({ route, navigation }) => {
 
             // Create channel name based on user IDs
             const channelName = `call_${currentUser.uid}_${user.id}`;
+            console.log('Channel name:', channelName);
 
             const callData = await callService.initializeCall(currentUser.uid, user.id, type);
             setCallId(callData.id);
