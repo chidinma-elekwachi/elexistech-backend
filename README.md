@@ -2,6 +2,39 @@
 
 A comprehensive React Native application featuring Firebase authentication, account switching, media sharing, and audio/video calling capabilities.
 
+## ⚠️ Important: Expo Go Compatibility
+
+**This app will NOT work with Expo Go** due to the Agora SDK's native modules requirement. The Agora SDK contains native code that cannot run in the Expo Go sandbox environment.
+
+### Options to Run the App:
+
+1. **Development Build (Recommended)**
+
+   ```bash
+   # Create a development build
+   expo run:android
+   expo run:ios
+   ```
+
+2. **Expo Go with Disabled Calling (Limited Functionality)**
+
+   - To test the app in Expo Go, you'll need to disable the calling functionality
+   - Comment out or remove the ChatScreen from the navigation
+   - The app will work for authentication, profile management, and media sharing only
+
+3. **EAS Build**
+   ```bash
+   # Build for production
+   eas build --platform android
+   eas build --platform ios
+   ```
+
+### Why This Limitation Exists:
+
+- The Agora SDK requires native modules for audio/video calling
+- Expo Go only supports JavaScript-based libraries
+- Native modules need to be compiled into the app binary
+
 ## 📱 Features
 
 - **🔐 Firebase Authentication** - Email/password login with account switching (up to 15 accounts)
