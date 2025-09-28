@@ -14,15 +14,18 @@ const LoadingScreen = ({ navigation }) => {
         try {
             const savedAccounts = await authService.getSavedAccounts();
             if (Object.keys(savedAccounts).length > 0) {
-                // There are saved accounts, try to get active user
-                const activeUser = await authService.getActiveUser();
-                if (activeUser) {
+                // There are saved accounts, try to get current user (with silent re-login)
+                const currentUser = await authService.getCurrentUser();
+                if (currentUser) {
+                    console.log('User authenticated, navigating to MainTabs');
                     navigation.replace('MainTabs');
                 } else {
+                    console.log('No current user found, navigating to Auth');
                     navigation.replace('Auth');
                 }
             } else {
                 // No saved accounts, go to auth screen
+                console.log('No saved accounts, navigating to Auth');
                 navigation.replace('Auth');
             }
         } catch (error) {

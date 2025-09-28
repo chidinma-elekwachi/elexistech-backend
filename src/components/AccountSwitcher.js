@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { List, Avatar, IconButton, Text, Surface, useTheme, Button } from 'react-native-paper';
 import authService from '../services/authService';
 
@@ -31,12 +31,17 @@ const AccountSwitcher = ({ onClose, currentUser, savedAccounts }) => {
             </View>
 
             <ScrollView style={styles.accountList}>
-                {Object.entries(savedAccounts).map(([uid, account]) => (
-                    <List.Item
+                {Object.entries(savedAccounts || {}).map(([uid, account]) => (
+                    <TouchableOpacity
                         key={uid}
-                        title={account.profile?.username || account.email}
-                        description={account.email}
-                        left={() => (
+                        onPress={() => uid !== currentUser?.uid && handleSwitchAccount(uid)}
+                        disabled={uid === currentUser?.uid}
+                        style={[
+                            styles.accountItem,
+                            uid === currentUser?.uid && styles.activeAccountItem
+                        ]}
+                    >
+                        <View style={styles.accountContent}>
                             <Avatar.Image
                                 size={40}
                                 source={
@@ -45,27 +50,45 @@ const AccountSwitcher = ({ onClose, currentUser, savedAccounts }) => {
                                         : require('../../assets/favicon.png')
                                 }
                             />
-                        )}
-                        right={() => (
+                            <View style={styles.accountInfo}>
+                                <Text variant="titleMedium" style={styles.accountTitle}>
+                                    {account.profile?.name || account.email}
+                                </Text>
+                                <Text variant="bodySmall" style={styles.accountEmail}>
+                                    {account.email}
+                                </Text>
+                            </View>
                             <View style={styles.accountActions}>
-                                {uid === user?.uid && (
-                                    <Text variant="bodySmall" style={{ color: theme.colors.primary }}>
+                                {uid === currentUser?.uid && (
+                                    <Text variant="bodySmall" style={[styles.activeText, { color: theme.colors.primary }]}>
                                         Active
                                     </Text>
                                 )}
-                                <IconButton
-                                    icon="account-switch"
-                                    disabled={uid === user?.uid}
-                                    onPress={() => handleSwitchAccount(uid)}
-                                />
+                                {uid !== currentUser?.uid && (
+                                    <IconButton
+                                        icon="account-switch"
+                                        size={20}
+                                        iconColor={theme.colors.primary}
+                                        onPress={() => handleSwitchAccount(uid)}
+                                    />
+                                )}
                                 <IconButton
                                     icon="delete-outline"
+                                    size={20}
+                                    iconColor={theme.colors.error}
                                     onPress={() => handleRemoveAccount(uid)}
                                 />
                             </View>
-                        )}
-                    />
+                        </View>
+                    </TouchableOpacity>
                 ))}
+                {Object.keys(savedAccounts || {}).length === 0 && (
+                    <View style={styles.emptyState}>
+                        <Text variant="bodyMedium" style={{ textAlign: 'center', color: theme.colors.onSurfaceVariant }}>
+                            No saved accounts found
+                        </Text>
+                    </View>
+                )}
             </ScrollView>
 
             <Button
@@ -97,8 +120,42 @@ const styles = StyleSheet.create({
     accountList: {
         paddingHorizontal: 8,
     },
+    accountItem: {
+        marginVertical: 4,
+        borderRadius: 8,
+        backgroundColor: 'white',
+    },
+    activeAccountItem: {
+        backgroundColor: '#f0f8ff',
+        borderWidth: 1,
+        borderColor: '#e3f2fd',
+    },
+    accountContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+    },
+    accountInfo: {
+        flex: 1,
+        marginLeft: 12,
+    },
+    accountTitle: {
+        fontWeight: '500',
+    },
+    accountEmail: {
+        opacity: 0.7,
+        marginTop: 2,
+    },
     accountActions: {
         flexDirection: 'row',
+        alignItems: 'center',
+    },
+    activeText: {
+        fontWeight: '500',
+        marginRight: 8,
+    },
+    emptyState: {
+        padding: 20,
         alignItems: 'center',
     },
     closeButton: {

@@ -24,7 +24,7 @@ const MainTabs = () => {
                     let iconName;
 
                     if (route.name === 'Users') {
-                        iconName = 'account-group';
+                        iconName = 'phone';
                     } else if (route.name === 'Profile') {
                         iconName = 'account';
                     }
@@ -75,7 +75,7 @@ const Navigation = () => {
                     }}
                 />
                 <Stack.Screen
-                    name="Chat"
+                    name="Call"
                     component={ChatScreen}
                     options={{
                         headerShown: false,

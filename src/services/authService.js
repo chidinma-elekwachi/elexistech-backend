@@ -64,8 +64,8 @@ class AuthService {
 
             // Update online status
             await updateDoc(doc(db, 'users', user.uid), {
-                online: false,
-                lastSeen: null,
+                online: true,
+                lastSeen: serverTimestamp(),
             });
 
             // Save account info
@@ -85,7 +85,7 @@ class AuthService {
             if (user) {
                 await updateDoc(doc(db, 'users', user.uid), {
                     online: false,
-                    lastSeen: Date.now(),
+                    lastSeen: serverTimestamp(),
                 });
             }
             await signOut(auth);
@@ -116,11 +116,63 @@ class AuthService {
         }
     }
 
+    // Get current user with silent re-login if needed
+    async getCurrentUser() {
+        try {
+            // First check if Firebase has a current user
+            if (auth.currentUser) {
+                return auth.currentUser;
+            }
+
+            // If no Firebase user but we have saved accounts, try silent re-login
+            const activeUser = await this.getActiveUser();
+            if (activeUser) {
+                console.log('No Firebase user but found active user, attempting silent re-login...');
+                try {
+                    // Attempt silent re-login
+                    const user = await this.signIn(activeUser.credentials.email, activeUser.credentials.password);
+                    console.log('Silent re-login successful');
+                    return user;
+                } catch (error) {
+                    console.error('Silent re-login failed:', error);
+                    // Clear the active user if re-login fails
+                    await this.removeActiveUser();
+                    return null;
+                }
+            }
+
+            return null;
+        } catch (error) {
+            console.error('Error getting current user:', error);
+            return null;
+        }
+    }
+
     // Get user profile
     async getUserProfile(uid) {
         try {
             const userDoc = await getDoc(doc(db, 'users', uid));
             return userDoc.exists() ? userDoc.data() : null;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    // Update user profile
+    async updateProfile(updates) {
+        try {
+            const user = await this.getCurrentUser();
+            if (!user) {
+                throw new Error('No user is currently signed in');
+            }
+
+            // Update Firestore document
+            await updateDoc(doc(db, 'users', user.uid), {
+                ...updates,
+                lastSeen: serverTimestamp(),
+            });
+
+            return true;
         } catch (error) {
             throw this.handleError(error);
         }
@@ -175,6 +227,15 @@ class AuthService {
         }
     }
 
+    // Remove active user
+    async removeActiveUser() {
+        try {
+            await AsyncStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
+        } catch (error) {
+            console.error('Error removing active user:', error);
+        }
+    }
+
     // Remove saved account
     async removeSavedAccount(uid) {
         try {
@@ -204,10 +265,15 @@ class AuthService {
             'auth/argument-error': 'Invalid argument provided',
             'auth/credential-already-in-use': 'This credential is already associated with a different user',
             'auth/requires-recent-login': 'Please log in again and try this operation',
-
         };
 
-        return new Error(errorMessages[error.code] || error.message);
+        // Check if error has a code property and if it exists in our error messages
+        const errorCode = error?.code;
+        const errorMessage = errorCode && errorMessages[errorCode]
+            ? errorMessages[errorCode]
+            : error?.message || 'An unexpected error occurred';
+
+        return new Error(errorMessage);
     }
 }
 

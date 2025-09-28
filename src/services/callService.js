@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, updateDoc, serverTimestamp, arrayUnion, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 class CallService {

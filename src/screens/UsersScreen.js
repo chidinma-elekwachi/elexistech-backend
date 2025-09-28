@@ -13,14 +13,48 @@ const UsersScreen = ({ navigation }) => {
 
     useEffect(() => {
         const usersRef = collection(db, 'users');
-        const q = query(usersRef, orderBy('lastSeen', 'desc'));
+        // Remove orderBy to avoid issues with missing lastSeen fields
+        const q = query(usersRef);
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const usersList = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                lastSeen: doc.data().lastSeen ? formatDistanceToNow(doc.data().lastSeen.toDate(), { addSuffix: true }) : 'Never'
-            }));
+            const usersList = snapshot.docs.map(doc => {
+                const data = doc.data();
+                let lastSeenFormatted = 'Never';
+
+                if (data.lastSeen) {
+                    try {
+                        // Check if it's a Firestore timestamp
+                        if (data.lastSeen.toDate && typeof data.lastSeen.toDate === 'function') {
+                            lastSeenFormatted = formatDistanceToNow(data.lastSeen.toDate(), { addSuffix: true });
+                        } else if (data.lastSeen instanceof Date) {
+                            lastSeenFormatted = formatDistanceToNow(data.lastSeen, { addSuffix: true });
+                        } else if (typeof data.lastSeen === 'string') {
+                            lastSeenFormatted = formatDistanceToNow(new Date(data.lastSeen), { addSuffix: true });
+                        }
+                    } catch (error) {
+                        console.error('Error formatting lastSeen:', error);
+                        lastSeenFormatted = 'Unknown';
+                    }
+                }
+
+                return {
+                    id: doc.id,
+                    ...data,
+                    lastSeen: lastSeenFormatted
+                };
+            });
+
+            // Sort users by lastSeen (most recent first)
+            usersList.sort((a, b) => {
+                if (a.lastSeen === 'Never' && b.lastSeen === 'Never') return 0;
+                if (a.lastSeen === 'Never') return 1;
+                if (b.lastSeen === 'Never') return -1;
+
+                // For users with lastSeen, we'll keep them in the order they come from Firestore
+                // since we can't easily sort by relative time strings
+                return 0;
+            });
+
             setUsers(usersList);
             setLoading(false);
         }, (error) => {
@@ -41,7 +75,7 @@ const UsersScreen = ({ navigation }) => {
 
     const renderUser = ({ item }) => (
         <TouchableRipple
-            onPress={() => navigation.navigate('Chat', { user: item })}
+            onPress={() => navigation.navigate('Call', { user: item })}
             style={styles.userCard}
         >
             <Surface style={styles.userCardInner} elevation={1}>
@@ -78,7 +112,7 @@ const UsersScreen = ({ navigation }) => {
         <SafeAreaView style={styles.container}>
             <Surface style={styles.header} elevation={2}>
                 <Text variant="headlineSmall" style={styles.headerTitle}>
-                    Available Users
+                    Available Users to Call
                 </Text>
             </Surface>
 

@@ -1,81 +1,80 @@
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { auth } from '../firebase/config';
+import * as ImagePicker from 'expo-image-picker';
+import authService from './authService';
+import { uploadAvatarToCloudinary } from '../cloudinary/config';
 
 class MediaService {
-    constructor() {
-        this.storage = getStorage();
-    }
+    constructor() { }
 
-    // Upload media file
-    async uploadMedia(file, type = 'image') {
+    // Pick image from gallery
+    async pickImage() {
         try {
-            if (!auth.currentUser) {
-                throw new Error('User must be authenticated to upload media');
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+                throw new Error('Permission to access media library is required');
             }
 
-            const userId = auth.currentUser.uid;
-            const timestamp = Date.now();
-            const fileExtension = file.uri.split('.').pop();
-            const filename = `${userId}_${timestamp}.${fileExtension}`;
-            const path = `${type}s/${userId}/${filename}`;
-
-            // Create blob from file URI
-            const response = await fetch(file.uri);
-            const blob = await response.blob();
-
-            // Create storage reference
-            const storageRef = ref(this.storage, path);
-
-            // Upload file
-            const uploadTask = uploadBytesResumable(storageRef, blob);
-
-            return new Promise((resolve, reject) => {
-                uploadTask.on(
-                    'state_changed',
-                    (snapshot) => {
-                        // Handle progress
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        console.log('Upload progress:', progress);
-                    },
-                    (error) => {
-                        // Handle error
-                        console.error('Upload error:', error);
-                        reject(error);
-                    },
-                    async () => {
-                        // Handle success
-                        try {
-                            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                            resolve({
-                                url: downloadURL,
-                                path,
-                                type,
-                                name: filename,
-                                size: file.size,
-                            });
-                        } catch (error) {
-                            reject(error);
-                        }
-                    }
-                );
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
             });
+            return result;
         } catch (error) {
-            console.error('Media upload error:', error);
+            console.error('Image picker error:', error);
             throw error;
         }
     }
 
-    // Upload avatar
+    // Upload profile image using Supabase
+    async uploadProfileImage(imageUri) {
+        try {
+            const currentUser = await authService.getCurrentUser();
+            if (!currentUser) throw new Error('User must be authenticated to upload media');
+
+            const uploadedUrl = await uploadAvatarToCloudinary({
+                fileUri: imageUri,
+                publicId: currentUser.uid,
+                folder: 'avatars',
+            });
+            return {
+                url: uploadedUrl,
+                path: uploadedUrl,
+                name: `${currentUser.uid}`,
+            };
+        } catch (error) {
+            console.error('Profile image upload error:', error);
+            throw error;
+        }
+    }
+
+    // Upload avatar using Supabase
     async uploadAvatar(file) {
         try {
-            return await this.uploadMedia(file, 'avatar');
+            return await this.uploadProfileImage(file.uri);
         } catch (error) {
             console.error('Avatar upload error:', error);
             throw error;
         }
     }
 
-    // Upload chat media
+    // Upload media file (keeping for compatibility)
+    async uploadMedia(file, type = 'image') {
+        try {
+            // For now, redirect to avatar upload for profile images
+            if (type === 'avatar') {
+                return await this.uploadAvatar(file);
+            }
+
+            // For other media types, you might want to implement separate Supabase buckets
+            throw new Error('Media upload not implemented for type: ' + type);
+        } catch (error) {
+            console.error('Media upload error:', error);
+            throw error;
+        }
+    }
+
+    // Upload chat media (keeping for compatibility)
     async uploadChatMedia(file, type = 'image') {
         try {
             return await this.uploadMedia(file, type);
@@ -85,15 +84,10 @@ class MediaService {
         }
     }
 
-    // Delete media
+    // Delete media (keeping for compatibility)
     async deleteMedia(path) {
-        try {
-            const storageRef = ref(this.storage, path);
-            await deleteObject(storageRef);
-        } catch (error) {
-            console.error('Media deletion error:', error);
-            throw error;
-        }
+        // Optional: Implement Cloudinary deletion via authenticated endpoint if needed
+        console.warn('deleteMedia not implemented for Cloudinary client-side');
     }
 }
 
