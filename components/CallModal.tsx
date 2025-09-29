@@ -7,16 +7,48 @@ import type { CallData, User } from "../types"
 
 interface CallModalProps {
   visible: boolean
-  call: CallData | null
-  currentUser: User
+  // call: CallData | null
+  // currentUser: User
   onClose: () => void
+  callType: "audio" | "video"
+  chatId: string
+  currentUser: User | null
 }
 
-export default function CallModal({ visible, call, currentUser, onClose }: CallModalProps) {
+// export default function CallModal({ visible, call, currentUser, onClose }: CallModalProps) {
+export default function CallModal({ visible, onClose, callType, chatId, currentUser }: CallModalProps) {
+  const [call, setCall] = useState<CallData | null>(null)
   const [callStatus, setCallStatus] = useState<string>("calling")
   const [audioEnabled, setAudioEnabled] = useState(true)
   const [videoEnabled, setVideoEnabled] = useState(true)
   const [duration, setDuration] = useState(0)
+
+  useEffect(() => {
+    if (!visible || !currentUser) return
+
+    const startCall = async () => {
+      try {
+      const callId = await callService.startCall(chatId, currentUser.id, callType)
+
+        const newCallData: CallData = {
+          id: callId,
+          callerId: currentUser.id,
+          receiverId: chatId, // Using chatId as receiverId for now
+          type: callType,
+          status: "calling",
+          createdAt: new Date(),
+        }
+
+        setCall(newCallData)
+      } catch (error: any) {
+        Alert.alert("Error", error.message || "Failed to start call")
+        onClose()
+      }
+    }
+
+    startCall()
+  }, [visible, currentUser, chatId, callType])
+
 
   useEffect(() => {
     if (!call) return
@@ -93,18 +125,19 @@ export default function CallModal({ visible, call, currentUser, onClose }: CallM
     const secs = seconds % 60
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
+const isIncoming = call?.receiverId === currentUser?.id
+  const isOutgoing = call?.callerId === currentUser?.id
 
-  const isIncoming = call?.receiverId === currentUser.id
-  const isOutgoing = call?.callerId === currentUser.id
 
-  if (!call) return null
+    if (!call || !currentUser) return null
+
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.callType}>{call.type === "video" ? "Video Call" : "Audio Call"}</Text>
-          {callStatus === "accepted" && <Text style={styles.duration}>{formatDuration(duration)}</Text>}
+         <Text style={styles.callType}>{callType === "video" ? "Video Call" : "Audio Call"}</Text>
+           {callStatus === "accepted" && <Text style={styles.duration}>{formatDuration(duration)}</Text>}
         </View>
 
         <View style={styles.userInfo}>
@@ -121,7 +154,7 @@ export default function CallModal({ visible, call, currentUser, onClose }: CallM
           </Text>
         </View>
 
-        {call.type === "video" && callStatus === "accepted" && (
+        {callType === "video" && callStatus === "accepted" && (
           <View style={styles.videoContainer}>
             <View style={styles.remoteVideo}>
               <Text style={styles.videoPlaceholder}>Remote Video</Text>
@@ -153,7 +186,7 @@ export default function CallModal({ visible, call, currentUser, onClose }: CallM
                 <Text style={styles.controlText}>{audioEnabled ? "Mute" : "Unmute"}</Text>
               </TouchableOpacity>
 
-              {call.type === "video" && (
+              {callType === "video" && (
                 <TouchableOpacity
                   style={[styles.controlButton, !videoEnabled && styles.controlButtonDisabled]}
                   onPress={toggleVideo}

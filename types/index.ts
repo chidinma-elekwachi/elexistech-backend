@@ -9,6 +9,7 @@ export type User = {
   
   export type Message = {
     id: string
+    type: "text" | "image" | "video" | "audio" 
     text?: string
     senderId: string
     createdAt?: any

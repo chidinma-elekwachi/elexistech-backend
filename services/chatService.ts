@@ -59,10 +59,13 @@ import {
       senderId: string,
       text?: string,
       mediaUrl?: string,
-      mediaType?: "image" | "video",
+      mediaType?: "image" | "video" 
+  
     ): Promise<void> {
       try {
+        
         const messageData: Omit<Message, "id"> = {
+          type: mediaType ? mediaType : "text",
           text,
           senderId,
           createdAt: serverTimestamp(),

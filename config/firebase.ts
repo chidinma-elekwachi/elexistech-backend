@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app"
-import { getAuth, connectAuthEmulator } from "firebase/auth"
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore"
-import { getStorage, connectStorageEmulator } from "firebase/storage"
+import { getAuth } from "firebase/auth"
+import { getFirestore,  } from "firebase/firestore"
+import { getStorage } from "firebase/storage"
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "demo-api-key",
@@ -20,16 +20,5 @@ export const auth = getAuth(app)
 export const db = getFirestore(app)
 export const storage = getStorage(app)
 
-// Connect to emulators in development
-if (__DEV__) {
-  try {
-    connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true })
-    connectFirestoreEmulator(db, "localhost", 8080)
-    connectStorageEmulator(storage, "localhost", 9199)
-    console.log("Connected to Firebase emulators")
-  } catch (error) {
-    console.log("Firebase emulators not available, using production")
-  }
-}
 
 export default app

@@ -22,9 +22,8 @@ export default function ChatListScreen() {
 
     setCurrentUser(user)
 
-    // Subscribe to user's chats
     const unsubscribe = chatService.subscribeToUserChats(user.id, (userChats) => {
-      setChats(userChats)
+      setChats(userChats || [])
       setLoading(false)
     })
 
@@ -45,36 +44,42 @@ export default function ChatListScreen() {
   }
 
   const getChatName = (chat: Chat) => {
-    if (chat.isGroup) {
-      return chat.groupName || "Group Chat"
-    }
-
-    // For direct chats, show the other user's name
-    // In a real app, you'd fetch user data
+    if (chat.isGroup) return chat.groupName || "Group Chat"
     return "Direct Chat"
   }
 
-  const renderChatItem = ({ item }: { item: Chat }) => (
-    <TouchableOpacity style={styles.chatItem} onPress={() => router.push(`/chat/${item.id}`)}>
-      <View style={styles.chatAvatar}>
-        <Text style={styles.avatarText}>{getChatName(item).charAt(0).toUpperCase()}</Text>
-      </View>
+  const renderChatItem = ({ item }: { item: Chat }) => {
+    const chatName = getChatName(item)
+    const lastMessageText = item.lastMessage?.text || "No messages yet"
+    const lastMessageTime = formatLastMessageTime(item.lastMessage?.createdAt)
+    const isUnread = item.lastMessage && !item.lastMessage.readBy?.includes(currentUser?.id || "")
 
-      <View style={styles.chatInfo}>
-        <Text style={styles.chatName}>{getChatName(item)}</Text>
-        <Text style={styles.lastMessage} numberOfLines={1}>
-          {item.lastMessage?.text || "No messages yet"}
-        </Text>
-      </View>
+    return (
+      <TouchableOpacity
+        style={styles.chatItem}
+        onPress={() => {
+          console.log("Tapped chat id:", item.id)
+          if (item.id) router.push(`/chat/${item.id}`)
+        }}
+      >
+        <View style={styles.chatAvatar}>
+          <Text style={styles.avatarText}>{chatName.charAt(0).toUpperCase()}</Text>
+        </View>
 
-      <View style={styles.chatMeta}>
-        <Text style={styles.timestamp}>{formatLastMessageTime(item.lastMessage?.createdAt)}</Text>
-        {item.lastMessage && !item.lastMessage.readBy?.includes(currentUser?.id || "") && (
-          <View style={styles.unreadBadge} />
-        )}
-      </View>
-    </TouchableOpacity>
-  )
+        <View style={styles.chatInfo}>
+          <Text style={styles.chatName}>{chatName}</Text>
+          <Text style={styles.lastMessage} numberOfLines={1}>
+            {lastMessageText}
+          </Text>
+        </View>
+
+        <View style={styles.chatMeta}>
+          <Text style={styles.timestamp}>{lastMessageTime}</Text>
+          {isUnread && <View style={styles.unreadBadge} />}
+        </View>
+      </TouchableOpacity>
+    )
+  }
 
   if (loading) {
     return (
@@ -92,9 +97,13 @@ export default function ChatListScreen() {
           <TouchableOpacity style={styles.headerButton} onPress={() => router.push("/search-users")}>
             <Text style={styles.headerButtonText}>+</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton} onPress={() => router.push("/settings")}>
-            <Image source={{ uri: currentUser?.avatar }} style={styles.profileImage} />
-          </TouchableOpacity>
+          {currentUser?.avatar ? (
+            <TouchableOpacity style={styles.headerButton} onPress={() => router.push("/settings")}>
+              <Image source={{ uri: currentUser.avatar }} style={styles.profileImage} />
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.profileImage, { backgroundColor: "#ccc" }]} />
+          )}
         </View>
       </View>
 
@@ -106,22 +115,20 @@ export default function ChatListScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList data={chats} renderItem={renderChatItem} keyExtractor={(item) => item.id} style={styles.chatList} />
+        <FlatList
+          data={chats}
+          renderItem={renderChatItem}
+          keyExtractor={(item) => item.id || Math.random().toString()}
+          style={styles.chatList}
+        />
       )}
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -132,105 +139,23 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  headerActions: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#007AFF",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerButtonText: {
-    color: "white",
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  chatList: {
-    flex: 1,
-  },
-  chatItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 15,
-    backgroundColor: "white",
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  chatAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#007AFF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 15,
-  },
-  avatarText: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  chatInfo: {
-    flex: 1,
-  },
-  chatName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 4,
-  },
-  lastMessage: {
-    fontSize: 14,
-    color: "#666",
-  },
-  chatMeta: {
-    alignItems: "flex-end",
-  },
-  timestamp: {
-    fontSize: 12,
-    color: "#999",
-    marginBottom: 4,
-  },
-  unreadBadge: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#007AFF",
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 40,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: "#666",
-    marginBottom: 20,
-  },
-  startChatButton: {
-    backgroundColor: "#007AFF",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  startChatText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "500",
-  },
+  title: { fontSize: 24, fontWeight: "bold", color: "#333" },
+  headerActions: { flexDirection: "row", gap: 10 },
+  headerButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#007AFF", justifyContent: "center", alignItems: "center" },
+  headerButtonText: { color: "white", fontSize: 20, fontWeight: "bold" },
+  profileImage: { width: 40, height: 40, borderRadius: 20 },
+  chatList: { flex: 1 },
+  chatItem: { flexDirection: "row", alignItems: "center", padding: 15, backgroundColor: "white", borderBottomWidth: 1, borderBottomColor: "#f0f0f0" },
+  chatAvatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#007AFF", justifyContent: "center", alignItems: "center", marginRight: 15 },
+  avatarText: { color: "white", fontSize: 18, fontWeight: "bold" },
+  chatInfo: { flex: 1 },
+  chatName: { fontSize: 16, fontWeight: "600", color: "#333", marginBottom: 4 },
+  lastMessage: { fontSize: 14, color: "#666" },
+  chatMeta: { alignItems: "flex-end" },
+  timestamp: { fontSize: 12, color: "#999", marginBottom: 4 },
+  unreadBadge: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#007AFF" },
+  emptyState: { flex: 1, justifyContent: "center", alignItems: "center", padding: 40 },
+  emptyText: { fontSize: 18, color: "#666", marginBottom: 20 },
+  startChatButton: { backgroundColor: "#007AFF", paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8 },
+  startChatText: { color: "white", fontSize: 16, fontWeight: "500" },
 })

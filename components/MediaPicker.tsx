@@ -7,10 +7,12 @@ import { mediaService, type MediaUploadResult } from "../services/mediaService"
 interface MediaPickerProps {
   visible: boolean
   onClose: () => void
-  onMediaSelected: (media: MediaUploadResult) => void
+  // onMediaSelected: (media: MediaUploadResult) => void
+  onMediaSelect: (mediaUri: string, mediaType: "image" | "video" | "audio") => void
 }
 
-export default function MediaPicker({ visible, onClose, onMediaSelected }: MediaPickerProps) {
+// export default function MediaPicker({ visible, onClose, onMediaSelected }: MediaPickerProps) {
+export function MediaPicker({ visible, onClose, onMediaSelect }: MediaPickerProps) {
   const [uploading, setUploading] = useState(false)
 
   const handleMediaSelection = async (action: () => Promise<MediaUploadResult | null>) => {
@@ -18,7 +20,8 @@ export default function MediaPicker({ visible, onClose, onMediaSelected }: Media
     try {
       const result = await action()
       if (result) {
-        onMediaSelected(result)
+        // onMediaSelected(result)
+          onMediaSelect(result.url, result.type)
         onClose()
       }
     } catch (error: any) {

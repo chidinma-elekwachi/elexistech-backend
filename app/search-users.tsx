@@ -45,7 +45,9 @@ export default function SearchUsersScreen() {
   const handleStartChat = async (user: User) => {
     try {
       const chatId = await chatService.getOrCreateDirectChat(currentUser?.id || "", user.id)
-      router.replace(`/chat/${chatId}`)
+      // router.replace(`/chat/${chatId}`)
+      router.push(`/chat/${chatId}`)
+
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to start chat")
     }
