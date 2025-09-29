@@ -3,7 +3,9 @@ import createAgoraRtcEngine, {
     RtcTextureView,
     ChannelProfileType,
     ClientRoleType,
-    UserOfflineReasonType
+    UserOfflineReasonType,
+    VideoSourceType,
+    VideoViewSetupMode
 } from 'react-native-agora';
 import { AGORA_APP_ID } from '@env';
 
@@ -39,13 +41,21 @@ class AgoraService {
                 throw new Error('Agora App ID is not configured');
             }
 
+            console.log('Initializing Agora engine with App ID:', AGORA_APP_ID);
             this.engine = createAgoraRtcEngine();
-            this.engine.initialize({
+            console.log('Agora engine created:', !!this.engine);
+
+            await this.engine.initialize({
                 appId: AGORA_APP_ID,
                 channelProfile: ChannelProfileType.ChannelProfileCommunication
             });
+            console.log('Agora engine initialized successfully');
+
             this.engine.enableVideo();
+            console.log('Video enabled');
+
             this.engine.setClientRole(ClientRoleType.ClientRoleBroadcaster);
+            console.log('Client role set to broadcaster');
 
             this.setupEventListeners();
             this.isInitialized = true;
@@ -121,6 +131,7 @@ class AgoraService {
                 return;
             }
 
+            console.log('Joining channel:', channelName);
             this.channelName = channelName;
             this.engine.joinChannel(
                 token || '',
@@ -130,8 +141,7 @@ class AgoraService {
                     clientRoleType: ClientRoleType.ClientRoleBroadcaster,
                 }
             );
-
-            console.log('Joining channel:', channelName);
+            console.log('Join channel request sent');
         } catch (error) {
             console.error('Failed to join channel:', error);
             throw error;
@@ -238,6 +248,18 @@ class AgoraService {
      */
     isInCall() {
         return this.isInChannel;
+    }
+
+    /**
+     * Get video components for rendering
+     */
+    getVideoComponents() {
+        return {
+            RtcSurfaceView,
+            RtcTextureView,
+            VideoSourceType,
+            VideoViewSetupMode
+        };
     }
 
     /**

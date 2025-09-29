@@ -10,7 +10,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import UsersScreen from '../screens/UsersScreen';
 import MediaShareScreen from '../screens/MediaShareScreen';
-import ChatScreen from '../screens/ChatScreen';
+// import ChatScreen from '../screens/ChatScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -78,13 +78,16 @@ const Navigation = () => {
                         title: 'Edit Profile',
                     }}
                 />
-                <Stack.Screen
-                    name="Call"
-                    component={ChatScreen}
-                    options={{
-                        headerShown: false,
-                    }}
-                />
+                {/** Call screen temporarily disabled to exclude Agora from build */}
+                {false && (
+                    <Stack.Screen
+                        name="Call"
+                        component={ChatScreen}
+                        options={{
+                            headerShown: false,
+                        }}
+                    />
+                )}
             </Stack.Navigator>
         </NavigationContainer>
     );

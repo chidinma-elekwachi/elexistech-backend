@@ -5,7 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import createAgoraRtcEngine, {
     RtcSurfaceView,
-    RtcTextureView
+    RtcTextureView,
+    VideoSourceType,
+    VideoViewSetupMode
 } from 'react-native-agora';
 import authService from '../services/authService';
 import callService from '../services/callService';
@@ -49,7 +51,9 @@ const CallScreen = ({ route, navigation }) => {
             console.log('Setting up call listener for callId:', callId);
             callUnsubscribe = callService.listenToCall(callId, (callData) => {
                 console.log('Call status updated:', callData);
-                if (callData.status === 'active' && callState === 'calling') {
+                console.log('Current call state:', callState);
+                // Always transition to active when call status becomes active
+                if (callData.status === 'active') {
                     console.log('Call became active, updating state');
                     setCallState('active');
                     startCallTimer();
@@ -63,7 +67,7 @@ const CallScreen = ({ route, navigation }) => {
                 callUnsubscribe();
             }
         };
-    }, [callId, callState]);
+    }, [callId]);
 
     // Listen for incoming calls (for when user is directly on call screen)
     useEffect(() => {
@@ -131,6 +135,8 @@ const CallScreen = ({ route, navigation }) => {
 
             console.log('Current user initialized:', activeUser.uid);
             console.log('Target user from params:', user);
+            console.log('Incoming call flag:', incoming);
+            console.log('Incoming call ID:', incomingCallId);
 
             if (!user || !user.id) {
                 console.log('No target user provided, navigating back');
@@ -166,20 +172,26 @@ const CallScreen = ({ route, navigation }) => {
             agoraService.setCallbacks({
                 onUserJoined: (uid) => {
                     console.log('Remote user joined:', uid);
-                    if (callState === 'ringing' || callState === 'calling') {
-                        setCallState('active');
-                        startCallTimer();
-                    }
+                    console.log('Current call state:', callState);
+                    // Always transition to active when remote user joins
+                    setCallState('active');
+                    startCallTimer();
                 },
                 onUserOffline: (uid, reason) => {
                     console.log('Remote user offline:', uid, reason);
-                    endCall();
+                    console.log('Current call state when user offline:', callState);
+                    console.log('Call ID when user offline:', callId);
+                    // Only end call if we're in an active call
+                    if (callState === 'active') {
+                        console.log('Ending call due to user offline');
+                        endCall();
+                    } else {
+                        console.log('Not ending call - not in active state');
+                    }
                 },
                 onJoinChannelSuccess: (channel, uid) => {
-                    console.log('Joined channel successfully:', channel, uid);
-                    if (callState === 'calling') {
-                        setCallState('ringing');
-                    }
+                    console.log('Join channel success:', channel, uid);
+                    console.log('Local UID set:', agoraService.getLocalUid());
                 },
                 onLeaveChannel: () => {
                     console.log('Left channel');
@@ -187,6 +199,8 @@ const CallScreen = ({ route, navigation }) => {
                 },
                 onError: (error) => {
                     console.error('Agora error:', error);
+                    console.log('Current call state when error:', callState);
+                    console.log('Call ID when error:', callId);
                     Alert.alert('Call Error', 'An error occurred during the call');
                     endCall();
                 }
@@ -232,8 +246,9 @@ const CallScreen = ({ route, navigation }) => {
             setCallType(type);
             setCallState('calling');
 
-            // Create channel name based on user IDs
-            const channelName = `call_${currentUser.uid}_${user.id}`;
+            // Create channel name based on user IDs (deterministic order)
+            const userIds = [currentUser.uid, user.id].sort();
+            const channelName = `call_${userIds[0]}_${userIds[1]}`;
             console.log('Channel name:', channelName);
 
             const callData = await callService.initializeCall(currentUser.uid, user.id, type);
@@ -245,7 +260,17 @@ const CallScreen = ({ route, navigation }) => {
             await callService.setRinging(callData.id);
 
             // Join Agora channel
+            console.log('About to join Agora channel:', channelName);
             await agoraService.joinChannel(channelName);
+            console.log('Successfully joined Agora channel');
+            console.log('Local UID after join:', agoraService.getLocalUid());
+
+            // Enable local video for video calls
+            if (type === 'video') {
+                await agoraService.enableLocalVideo(true);
+                setIsVideoEnabled(true);
+                console.log('Local video enabled for video call');
+            }
 
             // Start call duration timer
             startCallTimer();
@@ -258,17 +283,29 @@ const CallScreen = ({ route, navigation }) => {
     };
 
     const answerCall = async () => {
-        if (!callId || !agoraInitialized) return;
+        console.log('answerCall called');
+        console.log('callId:', callId);
+        console.log('agoraInitialized:', agoraInitialized);
+
+        if (!callId || !agoraInitialized) {
+            console.log('Cannot answer call - missing requirements');
+            return;
+        }
 
         try {
             setCallState('active');
 
-            // Join the same channel as the caller
-            const channelName = `call_${user.id}_${currentUser.uid}`;
+            // Join the same channel as the caller (deterministic order)
+            const userIds = [user.id, currentUser.uid].sort();
+            const channelName = `call_${userIds[0]}_${userIds[1]}`;
+            console.log('Answering call - joining channel:', channelName);
             await agoraService.joinChannel(channelName);
+            console.log('Successfully joined channel as receiver');
+            console.log('Local UID after join:', agoraService.getLocalUid());
 
             // Update call status in Firestore to 'active'
             if (callId) {
+                console.log('Updating call status to active in Firestore');
                 await callService.setAnswer(callId, { answer: 'accepted' });
             }
 
@@ -470,35 +507,69 @@ const CallScreen = ({ route, navigation }) => {
     };
 
     const renderVideoView = () => {
-        if (callType === 'video' && callState === 'active' && agoraInitialized) {
+        console.log('renderVideoView called:', {
+            callType,
+            callState,
+            agoraInitialized,
+            localUid: agoraService.getLocalUid(),
+            remoteUid: agoraService.getRemoteUid()
+        });
+
+        const shouldShowVideo = callType === 'video' && (callState === 'calling' || callState === 'ringing' || callState === 'active') && agoraInitialized;
+        console.log('Should show video:', shouldShowVideo);
+
+        if (shouldShowVideo) {
+            console.log('Rendering video view');
+            console.log('Local UID for video:', agoraService.getLocalUid());
+            console.log('Remote UID for video:', agoraService.getRemoteUid());
             return (
                 <View style={styles.videoContainer}>
                     {/* Main Remote Video - Full Screen */}
                     <View style={styles.mainVideoContainer}>
-                        <RtcSurfaceView
-                            style={styles.mainVideoSurface}
-                            canvas={{ uid: agoraService.getRemoteUid() }}
-                        />
-                        {!agoraService.getRemoteUid() && (
-                            <View style={styles.noRemoteVideoOverlay}>
-                                <Avatar.Image
-                                    size={150}
-                                    source={
-                                        user.avatar
-                                            ? { uri: user.avatar }
-                                            : require('../../assets/favicon.png')
-                                    }
+                        {agoraService.getRemoteUid() ? (
+                            <>
+                                {console.log('Rendering remote video with UID:', agoraService.getRemoteUid())}
+                                <RtcSurfaceView
+                                    style={styles.mainVideoSurface}
+                                    canvas={{
+                                        uid: agoraService.getRemoteUid(),
+                                        sourceType: VideoSourceType.VideoSourceRemote,
+                                        setupMode: VideoViewSetupMode.VideoViewSetupAdd
+                                    }}
                                 />
-                                <Text style={styles.waitingText}>Waiting for {user.name}...</Text>
-                            </View>
+                            </>
+                        ) : (
+                            <>
+                                {console.log('Rendering waiting overlay - no remote UID')}
+                                <View style={styles.noRemoteVideoOverlay}>
+                                    <Avatar.Image
+                                        size={150}
+                                        source={
+                                            user.avatar
+                                                ? { uri: user.avatar }
+                                                : require('../../assets/favicon.png')
+                                        }
+                                    />
+                                    <Text style={styles.waitingText}>
+                                        {callState === 'calling' ? `Calling ${user.name}...` :
+                                            callState === 'ringing' ? `Waiting for ${user.name}...` :
+                                                `Waiting for ${user.name}...`}
+                                    </Text>
+                                </View>
+                            </>
                         )}
                     </View>
 
                     {/* Local Video - Picture in Picture */}
                     <View style={styles.localVideoPip}>
+                        {console.log('Rendering local video with UID:', agoraService.getLocalUid())}
                         <RtcSurfaceView
                             style={styles.localVideoSurface}
-                            canvas={{ uid: agoraService.getLocalUid() }}
+                            canvas={{
+                                uid: agoraService.getLocalUid(),
+                                sourceType: VideoSourceType.VideoSourceCamera,
+                                setupMode: VideoViewSetupMode.VideoViewSetupAdd
+                            }}
                         />
                         <View style={styles.localVideoOverlay}>
                             <Text style={styles.localVideoLabel}>You</Text>
@@ -507,6 +578,8 @@ const CallScreen = ({ route, navigation }) => {
                 </View>
             );
         }
+
+        console.log('Not rendering video view - returning null');
         return null;
     };
 
